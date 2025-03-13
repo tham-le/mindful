@@ -1,6 +1,7 @@
 import axios from 'axios';
+import authService from './auth';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
 // Create an axios instance with a timeout
 const apiClient = axios.create({
@@ -8,11 +9,31 @@ const apiClient = axios.create({
   timeout: 5000, // 5 seconds timeout
 });
 
+// Add a request interceptor to include the auth token
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = authService.getToken();
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 // Add a response interceptor to handle errors
 apiClient.interceptors.response.use(
   response => response,
   error => {
     console.log('API Error:', error.message);
+    
+    // If unauthorized and not a login/register request, redirect to login
+    if (error.response?.status === 401 && 
+        !error.config.url.includes('/auth/login') && 
+        !error.config.url.includes('/auth/register')) {
+      authService.logout();
+    }
+    
     // Return a resolved promise with mock data for development
     if (process.env.NODE_ENV === 'development') {
       return Promise.resolve({

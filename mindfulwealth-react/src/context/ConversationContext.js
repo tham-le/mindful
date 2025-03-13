@@ -1,10 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import api from '../services/api';
+import { useAuth } from './AuthContext';
 
 const ConversationContext = createContext();
 
 export const useConversation = () => useContext(ConversationContext);
 
 export const ConversationProvider = ({ children }) => {
+  const { user } = useAuth() || { user: null };
+  
   // Messages state
   const [messages, setMessages] = useState(() => {
     const savedMessages = localStorage.getItem('chatHistory');
@@ -38,6 +42,11 @@ export const ConversationProvider = ({ children }) => {
 
   // Personality mode state
   const [personalityMode, setPersonalityMode] = useState(() => {
+    // First try to get from user preferences
+    if (user?.personality_preference) {
+      return user.personality_preference;
+    }
+    // Then try to get from localStorage
     const savedMode = localStorage.getItem('personalityMode');
     return savedMode || 'nice';
   });
@@ -57,7 +66,18 @@ export const ConversationProvider = ({ children }) => {
   // Save personality mode to localStorage when it changes
   useEffect(() => {
     localStorage.setItem('personalityMode', personalityMode);
+    
+    // Update on the backend
+    api.setPersonalityMode(personalityMode)
+      .catch(error => console.error('Error setting personality mode:', error));
   }, [personalityMode]);
+
+  // Update personality mode when user changes
+  useEffect(() => {
+    if (user && user.personality_preference && user.personality_preference !== personalityMode) {
+      setPersonalityMode(user.personality_preference);
+    }
+  }, [user, personalityMode]);
 
   // Add a message to the conversation
   const addMessage = (message) => {
@@ -79,40 +99,64 @@ export const ConversationProvider = ({ children }) => {
     // Show typing indicator
     setIsTyping(true);
 
-    // Simulate AI response after a delay
-    setTimeout(() => {
-      // Generate a simple response based on the user's message
-      let response;
-      const lowerText = text.toLowerCase();
-      
-      if (lowerText.includes('hello') || lowerText.includes('hi')) {
-        response = "Hello! How can I help you with your financial decisions today?";
-      } else if (lowerText.includes('invest')) {
-        response = "Investment is a great way to grow your wealth. Would you like some advice on investment strategies?";
-      } else if (lowerText.includes('save') || lowerText.includes('saving')) {
-        response = "Saving is fundamental to financial health. Have you considered setting up an emergency fund?";
-      } else if (lowerText.includes('budget')) {
-        response = "Creating a budget is an excellent step. Would you like some tips on effective budgeting?";
-      } else if (lowerText.includes('debt')) {
-        response = "Managing debt is important. There are several strategies like the snowball or avalanche method that can help you pay off debt efficiently.";
-      } else if (lowerText.includes('retirement')) {
-        response = "Planning for retirement early can make a huge difference. Have you started contributing to a retirement account?";
-      } else {
-        response = "That's an interesting point. Would you like to explore this topic further in relation to your financial goals?";
-      }
+    try {
+      // Format conversation history for API
+      const formattedHistory = messages.map(msg => ({
+        isUser: msg.sender === 'user',
+        text: msg.text,
+        timestamp: msg.timestamp
+      }));
 
-      // Add bot response
-      const botMessage = {
+      // Call API to get response
+      const response = await api.sendMessage(text, conversationContext, formattedHistory);
+      
+      // Process API response
+      if (response && response.data) {
+        const botMessage = {
+          sender: 'bot',
+          text: response.data.response,
+          timestamp: new Date().toISOString(),
+          personalityMode: personalityMode,
+          financialData: response.data.financial_data
+        };
+        
+        // Add bot response to messages
+        addMessage(botMessage);
+        
+        // Update context with financial data if present
+        if (response.data.financial_data) {
+          updateContext({
+            lastMentionedAmount: response.data.financial_data.original?.amount,
+            lastMentionedCurrency: response.data.financial_data.original?.currency,
+            lastResponseTime: new Date().toISOString()
+          });
+        }
+      } else {
+        // Fallback for no response
+        const fallbackMessage = {
+          sender: 'bot',
+          text: "I'm sorry, I couldn't process your request at the moment. Please try again later.",
+          timestamp: new Date().toISOString(),
+          personalityMode: personalityMode,
+        };
+        addMessage(fallbackMessage);
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      
+      // Add error message
+      const errorMessage = {
         sender: 'bot',
-        text: response,
+        text: "I'm having trouble connecting to the server. Please check your connection and try again.",
         timestamp: new Date().toISOString(),
         personalityMode: personalityMode,
+        isError: true
       };
-      addMessage(botMessage);
-      
+      addMessage(errorMessage);
+    } finally {
       // Hide typing indicator
       setIsTyping(false);
-    }, 1500); // Simulate thinking time
+    }
   };
 
   // Update conversation context

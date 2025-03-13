@@ -5,6 +5,7 @@ import json
 import re
 import logging
 from typing import Dict, Any, Optional, Union
+import os
 
 try:
     from google import genai
@@ -21,97 +22,342 @@ logger = logging.getLogger(__name__)
 class GeminiService:
     """Service for interacting with Google's Gemini API"""
     
-    def __init__(self, api_key: str):
-        """Initialize the Gemini service with API key"""
-        if not GENAI_AVAILABLE:
-            raise ImportError("google-genai package is required for GeminiService")
+    def __init__(self, api_key=None):
+        self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
+        self.genai = None
+        self.model = None
+        self.client = None
+        self.category_translations = {
+            'en': {
+                'savings': 'savings',
+                'groceries': 'groceries',
+                'dining': 'dining',
+                'entertainment': 'entertainment',
+                'shopping': 'shopping',
+                'travel': 'travel',
+                'utilities': 'utilities',
+                'housing': 'housing',
+                'transportation': 'transportation',
+                'healthcare': 'healthcare',
+                'education': 'education',
+                'investments': 'investments',
+                'clothing': 'clothing',
+                'electronics': 'electronics',
+                'subscriptions': 'subscriptions',
+                'gifts': 'gifts',
+                'personal care': 'personal care',
+                'impulse purchases': 'impulse purchases'
+            },
+            'fr': {
+                'savings': 'épargne',
+                'groceries': 'courses',
+                'dining': 'restaurants',
+                'entertainment': 'divertissement',
+                'shopping': 'achats',
+                'travel': 'voyages',
+                'utilities': 'services publics',
+                'housing': 'logement',
+                'transportation': 'transport',
+                'healthcare': 'santé',
+                'education': 'éducation',
+                'investments': 'investissements',
+                'clothing': 'vêtements',
+                'electronics': 'électronique',
+                'subscriptions': 'abonnements',
+                'gifts': 'cadeaux',
+                'personal care': 'soins personnels',
+                'impulse purchases': 'achats impulsifs'
+            }
+        }
         
-        self.client = genai.Client(api_key=api_key)
-        self.personality_mode = "nice"  # Default personality mode: "nice" or "sarcastic"
-        self.preferred_currency = "EUR"  # Default currency: EUR
-        self.currency_symbols = {
-            "EUR": "€",
-            "GBP": "£",
-            "USD": "$"
+        # Impulse purchase keywords by language
+        self.impulse_keywords = {
+            'en': [
+                'want', 'desire', 'tempted', 'impulse', 'splurge', 'treat myself',
+                'just saw', 'cool', 'awesome', 'limited time', 'sale', 'discount',
+                'deal', 'special offer', 'flash sale', 'clearance', 'exclusive',
+                'new release', 'trending', 'popular', 'must-have', 'just launched'
+            ],
+            'fr': [
+                'envie', 'désir', 'tenté', 'impulsion', 'dépenser', 'me faire plaisir',
+                'viens de voir', 'cool', 'génial', 'temps limité', 'solde', 'remise',
+                'affaire', 'offre spéciale', 'vente flash', 'déstockage', 'exclusif',
+                'nouvelle sortie', 'tendance', 'populaire', 'incontournable', 'vient de sortir'
+            ]
+        }
+        
+        # Investment-related keywords by language
+        self.investment_keywords = {
+            'en': [
+                'invest', 'save', 'future', 'retirement', 'growth', 'compound interest',
+                'portfolio', 'stocks', 'bonds', 'mutual funds', 'ETF', 'index fund',
+                'long-term', 'financial goals', 'wealth building', 'passive income'
+            ],
+            'fr': [
+                'investir', 'épargner', 'avenir', 'retraite', 'croissance', 'intérêts composés',
+                'portefeuille', 'actions', 'obligations', 'fonds communs', 'FNB', 'fonds indiciel',
+                'long terme', 'objectifs financiers', 'création de richesse', 'revenu passif'
+            ]
         }
 
         self.system_instruction = """
-You are MindfulBot, a financial assistant specialized in helping users manage their spending and investments. Your personality should be engaging, friendly, and conversational - never robotic or bland.
+You are MindfulBot, a financial assistant focused on helping users manage their spending and investments wisely. Your primary goals are:
 
-CONVERSATION CONTEXT:
-- MAINTAIN CONTINUITY: Always refer back to previous messages in the conversation
-- REMEMBER DETAILS: Keep track of specific amounts, items, and financial decisions mentioned earlier
-- FOLLOW-UP APPROPRIATELY: If a user is continuing a discussion about a previous purchase, acknowledge that context
-- REFERENCE HISTORY: Use phrases like "As you mentioned earlier about the shoes..." or "Going back to your question about..."
+1. IMPULSE PURCHASE LIMITATION: Help users identify impulse purchases and redirect that money toward investments.
+2. INVESTMENT FOCUS: Encourage users to invest money they would have spent on impulse purchases.
+3. BUDGET TRACKING EMPHASIS: Help users track reasonable spending and stay within budget.
 
-IMPORTANT: Classify user spending into two categories:
-1. IMPULSE PURCHASES: Non-essential items bought on impulse (e.g., luxury items, unnecessary gadgets, spontaneous purchases, items bought due to emotional triggers)
-2. REASONABLE SPENDING: Essential or planned purchases (e.g., groceries, medical expenses, bills, planned purchases)
+When responding to users, follow these guidelines:
 
-For each user message:
-1. Identify if they're discussing a purchase or spending intention
-2. Determine the amount and category
-3. Classify as either "impulse" or "reasonable" based on the category and context
-4. If this is a follow-up to a previous discussion, maintain that context
+FOR IMPULSE PURCHASES (non-essential, emotionally-driven purchases):
+- Acknowledge the emotional appeal of the purchase
+- Gently suggest redirecting the money to investments instead
+- Calculate potential growth at 8% annual return (1 year and 5 years)
+- Offer a specific investment alternative
+- Use a supportive tone that doesn't make users feel judged
 
-RESPONSE GUIDELINES:
-- For IMPULSE purchases: Be conversational and use light humor. Acknowledge the joy of the purchase but gently suggest investment alternatives. Calculate potential investment growth using an 8% annual return rate. Use emojis and casual language to feel relatable.
-- For REASONABLE spending: Be brief but warm. Acknowledge the expense positively. Use at least one emoji in your response. Keep it conversational, not transactional.
-- For FOLLOW-UP messages: Reference the specific item/amount from earlier in the conversation. If the user clarifies that an impulse purchase was actually planned, acknowledge this change in understanding.
-
-PERSONALITY MODES:
-- NICE MODE: Be supportive, encouraging, and gentle in your responses. Use phrases like "Great choice!" "I see what you did there!" and "Looking forward to your financial success!"
-- SARCASTIC MODE: Use witty humor and playful teasing. Include phrases like "Well, aren't we feeling fancy today?" or "Your future self just rolled their eyes at this purchase!"
-
-ESSENTIAL CATEGORIES (almost always reasonable):
-- Medical/Healthcare
-- Groceries/Food essentials
-- Housing/Rent/Mortgage
-- Utilities
-- Transportation necessities
-- Education
-- Childcare
+FOR REASONABLE SPENDING (essentials, planned purchases):
+- Affirm the user's good decision
+- Suggest budget categories if appropriate
+- Provide relevant financial tips for that category
+- Encourage tracking the expense
 
 RESPONSE STYLE:
-- Always use at least 1-2 emojis in each response
-- Address the user directly like a friend, not a client
-- Ask engaging follow-up questions to keep the conversation going
-- For impulse purchases, acknowledge the emotional appeal before suggesting alternatives
-- Never be judgmental, even in sarcastic mode - keep it playful
-- Vary your opening and closing statements to sound more human
-- Include occasional personal touches like "I love shoes too, but..." or "I'd be tempted by that myself!"
+- Be friendly and engaging
+- Use emojis occasionally to add personality
+- Personalize responses based on user history when possible
+- Keep responses concise but informative
+- Adapt your tone based on the user's personality preference:
+  * NICE: Supportive, encouraging, and gentle
+  * FUNNY: Light-hearted with appropriate humor
+  * IRONIC: Slightly sarcastic but still helpful
 
-JSON RESPONSE FORMAT:
-For IMPULSE purchases:
-{
- "financialData": {
- "type": "impulse",
- "amount": <amount>,
- "category": "<category>",
- "potential_value_1yr": <amount * 1.08>,
- "potential_value_5yr": <amount * (1.08^5)>
- }
-}
-For REASONABLE spending:
-{
- "financialData": {
- "type": "reasonable",
- "amount": <amount>,
- "category": "<category>",
- "budget_allocation": true
- }
-}
-
-For impulse purchases, be specific about the benefits of investing instead, but do so in a friendly, non-judgmental way. For reasonable spending, keep responses brief but warm and personable.
+Always remember that your goal is to help users build wealth through mindful spending and consistent investing.
 """
+        
+        self.initialize()
     
+    def initialize(self):
+        """Initialize the Gemini API client"""
+        if not self.api_key:
+            logger.warning("No Gemini API key provided. Using mock responses.")
+            return
+        
+        try:
+            import google.generativeai as genai
+            self.genai = genai
+            self.genai.configure(api_key=self.api_key)
+            self.model = self.genai.GenerativeModel('gemini-pro')
+            self.client = self.genai
+            logger.info("Gemini API initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Gemini API: {str(e)}")
+    
+    def _translate_category(self, category, language='en'):
+        """Translate category between languages"""
+        if language == 'en':
+            return category
+        
+        # Check for exact match in reverse mapping
+        for en_cat, translated in self.category_translations['en'].items():
+            if category.lower() == translated.lower():
+                return self.category_translations[language].get(en_cat, category)
+        
+        # Check for partial match
+        for en_cat, translated in self.category_translations['en'].items():
+            if category.lower() in translated.lower() or translated.lower() in category.lower():
+                return self.category_translations[language].get(en_cat, category)
+        
+        return category
+    
+    def _detect_impulse_purchase(self, message, language='en'):
+        """Detect if a message is likely about an impulse purchase"""
+        message_lower = message.lower()
+        keywords = self.impulse_keywords.get(language, self.impulse_keywords['en'])
+        
+        # Check for impulse keywords
+        for keyword in keywords:
+            if keyword.lower() in message_lower:
+                return True
+        
+        # Check for common impulse purchase patterns
+        impulse_patterns = [
+            r'should i (buy|get|purchase)',
+            r'thinking (of|about) (buying|getting)',
+            r'tempted to (buy|get|purchase)',
+            r'(want|desire) to (buy|get|purchase)',
+            r'(saw|found) (a|an|this) (cool|nice|awesome|amazing)',
+            r'(on sale|discount|deal|offer|limited time)'
+        ]
+        
+        for pattern in impulse_patterns:
+            if re.search(pattern, message_lower):
+                return True
+        
+        return False
+    
+    def _extract_amount(self, message):
+        """Extract monetary amount from message"""
+        # Look for currency symbols followed by numbers
+        currency_pattern = r'[$€£¥](\d+(?:[.,]\d+)?)'
+        match = re.search(currency_pattern, message)
+        if match:
+            return float(match.group(1).replace(',', '.'))
+        
+        # Look for numbers followed by currency words
+        amount_pattern = r'(\d+(?:[.,]\d+)?)\s*(?:dollars|euros|pounds|USD|EUR|GBP)'
+        match = re.search(amount_pattern, message, re.IGNORECASE)
+        if match:
+            return float(match.group(1).replace(',', '.'))
+        
+        # Look for numbers with currency symbols in words
+        word_pattern = r'(\d+(?:[.,]\d+)?)\s*(?:\$|€|£|¥)'
+        match = re.search(word_pattern, message)
+        if match:
+            return float(match.group(1).replace(',', '.'))
+        
+        return None
+    
+    def _calculate_investment_growth(self, amount, years=1):
+        """Calculate potential investment growth at 8% annual return"""
+        return round(amount * (1.08 ** years), 2)
+    
+    def _format_investment_advice(self, amount, language='en'):
+        """Format investment advice based on amount and language"""
+        if amount is None:
+            return ""
+        
+        growth_1yr = self._calculate_investment_growth(amount, 1)
+        growth_5yr = self._calculate_investment_growth(amount, 5)
+        
+        if language == 'fr':
+            return f"Si vous investissez ces {amount}€ au lieu de les dépenser, vous pourriez avoir {growth_1yr}€ dans un an et {growth_5yr}€ dans cinq ans (avec un rendement annuel de 8%)."
+        else:
+            return f"If you invest this ${amount} instead of spending it, you could have ${growth_1yr} in one year and ${growth_5yr} in five years (at 8% annual return)."
+    
+    def get_response(self, message, context=None, personality_mode='nice', language='en'):
+        """Get a response from the Gemini API"""
+        if not self.model:
+            return self._get_mock_response(message, context, personality_mode, language)
+        
+        try:
+            # Prepare context for the model
+            history = []
+            if context:
+                for msg in context:
+                    role = "user" if msg["role"] == "user" else "model"
+                    history.append({"role": role, "parts": [msg["content"]]})
+            
+            # Detect if this is likely an impulse purchase
+            is_impulse = self._detect_impulse_purchase(message, language)
+            amount = self._extract_amount(message)
+            
+            # Add investment advice if it's an impulse purchase
+            investment_advice = ""
+            if is_impulse and amount:
+                investment_advice = self._format_investment_advice(amount, language)
+            
+            # Prepare the chat
+            chat = self.model.start_chat(history=history)
+            
+            # Add system instruction
+            prompt = f"{self.system_instruction}\n\nUser personality preference: {personality_mode.upper()}\nUser language: {language}\n"
+            
+            if is_impulse:
+                prompt += "\nThis appears to be about an IMPULSE PURCHASE. Remember to gently redirect toward investment.\n"
+                if investment_advice:
+                    prompt += f"\n{investment_advice}\n"
+            
+            prompt += f"\nUser message: {message}"
+            
+            # Get response
+            response = chat.send_message(prompt)
+            return response.text
+            
+        except Exception as e:
+            logger.error(f"Error getting response from Gemini: {str(e)}")
+            return self._get_mock_response(message, context, personality_mode, language)
+    
+    def _get_mock_response(self, message, context=None, personality_mode='nice', language='en'):
+        """Generate a mock response for testing without API"""
+        # Detect if this is likely an impulse purchase
+        is_impulse = self._detect_impulse_purchase(message, language)
+        amount = self._extract_amount(message)
+        
+        # Extract category if mentioned
+        category_match = re.search(r'for\s+(\w+)', message)
+        category = category_match.group(1) if category_match else None
+        
+        if category:
+            category = self._translate_category(category, language)
+        
+        # Basic responses based on personality mode
+        if is_impulse:
+            if language == 'fr':
+                if personality_mode == 'nice':
+                    response = f"Je comprends que vous soyez tenté(e) par cet achat. Avez-vous envisagé d'investir cet argent à la place?"
+                elif personality_mode == 'funny':
+                    response = f"Oh là là, votre portefeuille vient de crier 'Au secours!' 😂 Et si on investissait cet argent à la place?"
+                else:  # ironic
+                    response = f"Bien sûr, parce que c'est exactement ce dont vous avez besoin... Ou peut-être investir cet argent serait plus judicieux?"
+            else:
+                if personality_mode == 'nice':
+                    response = f"I understand you're tempted by this purchase. Have you considered investing this money instead?"
+                elif personality_mode == 'funny':
+                    response = f"Whoa there, I can hear your wallet screaming for help! 😂 What if we invest that money instead?"
+                else:  # ironic
+                    response = f"Sure, because that's exactly what you need right now... Or maybe investing that money would be wiser?"
+            
+            # Add investment advice if amount is detected
+            if amount:
+                growth_1yr = self._calculate_investment_growth(amount, 1)
+                growth_5yr = self._calculate_investment_growth(amount, 5)
+                
+                if language == 'fr':
+                    response += f"\n\nSi vous investissez ces {amount}€ au lieu de les dépenser, vous pourriez avoir {growth_1yr}€ dans un an et {growth_5yr}€ dans cinq ans (avec un rendement annuel de 8%)."
+                else:
+                    response += f"\n\nIf you invest this ${amount} instead of spending it, you could have ${growth_1yr} in one year and ${growth_5yr} in five years (at 8% annual return)."
+        else:
+            if category:
+                if language == 'fr':
+                    if personality_mode == 'nice':
+                        response = f"C'est une bonne idée de suivre vos dépenses pour {category}. Avez-vous un budget mensuel pour cette catégorie?"
+                    elif personality_mode == 'funny':
+                        response = f"Ah, {category}! L'argent s'envole, mais au moins vous savez où il va! 😄 Avez-vous défini un budget?"
+                    else:  # ironic
+                        response = f"Dépenser pour {category}, quelle surprise... Avez-vous au moins un budget pour ça?"
+                else:
+                    if personality_mode == 'nice':
+                        response = f"It's a good idea to track your spending on {category}. Do you have a monthly budget for this category?"
+                    elif personality_mode == 'funny':
+                        response = f"Ah, {category}! Money flies, but at least you know where it's going! 😄 Do you have a budget set?"
+                    else:  # ironic
+                        response = f"Spending on {category}, what a surprise... Do you at least have a budget for that?"
+            else:
+                if language == 'fr':
+                    if personality_mode == 'nice':
+                        response = "Je suis là pour vous aider à gérer vos finances. Comment puis-je vous aider aujourd'hui?"
+                    elif personality_mode == 'funny':
+                        response = "Bonjour! Je suis votre assistant financier, prêt à faire danser vos euros! 💃 Comment puis-je vous aider?"
+                    else:  # ironic
+                        response = "Ah, encore besoin d'aide avec votre argent? Quelle surprise... Comment puis-je vous aider cette fois?"
+                else:
+                    if personality_mode == 'nice':
+                        response = "I'm here to help you manage your finances. How can I assist you today?"
+                    elif personality_mode == 'funny':
+                        response = "Hello there! I'm your financial assistant, ready to make your dollars dance! 💃 How can I help?"
+                    else:  # ironic
+                        response = "Ah, need help with your money again? What a surprise... How can I assist you this time?"
+        
+        return response
+
     def set_personality_mode(self, mode: str) -> None:
         """Set the personality mode for responses
         
         Args:
-            mode: Either "nice" or "sarcastic"
+            mode: One of "nice", "funny", or "irony"
         """
-        if mode.lower() in ["nice", "sarcastic"]:
+        if mode.lower() in ["nice", "funny", "irony"]:
             self.personality_mode = mode.lower()
             logger.info(f"Personality mode set to: {self.personality_mode}")
         else:
@@ -132,70 +378,38 @@ For impulse purchases, be specific about the benefits of investing instead, but 
             self.preferred_currency = "EUR"
 
     def analyze_message(self, message: str, conversation_history: list = None, context_data: dict = None) -> Dict[str, Any]:
-        """Process a user message and extract financial information
-        
-        Args:
-            message: The user's message
-            conversation_history: List of previous messages in the conversation
-            context_data: Additional context about the conversation
-        
-        Returns:
-            Dict containing response text and financial data if detected
         """
+        Analyze a message to extract financial information and determine if it's an impulse purchase
+        """
+        logger.info(f"Analyzing message: {message[:50]}...")
+        
+        if not GENAI_AVAILABLE or not self.model:
+            # Use rule-based analysis if Gemini is not available
+            return self._analyze_message_rule_based(message)
+        
         try:
-            logger.info(f"Analyzing message: {message[:50]}...")
-            
-            # Add personality mode to the prompt
-            personality_instruction = f"Use {self.personality_mode.upper()} MODE for your response tone."
-            
-            # Format conversation history in a clear chat-like format
+            # Prepare conversation history for context
             history_prompt = ""
             if conversation_history and len(conversation_history) > 0:
-                history_prompt = "CONVERSATION HISTORY (IMPORTANT FOR CONTEXT):\n"
-                # Include up to 10 previous messages for context, with most recent last
-                for i, msg in enumerate(conversation_history[-10:]):
-                    role = "User" if msg.get('role') == 'user' else "Assistant"
-                    content = msg.get('content', '').strip()
-                    history_prompt += f"{role}: {content}\n"
-                history_prompt += "\n"
+                history_prompt = "CONVERSATION HISTORY:\n"
+                for i, msg in enumerate(conversation_history[-5:]):  # Use last 5 messages for context
+                    role = "USER" if msg["role"] == "user" else "ASSISTANT"
+                    history_prompt += f"{role}: {msg['content']}\n"
             
-            # Prepare financial context in a structured format
+            # Prepare context data if available
             context_prompt = ""
             if context_data:
-                context_prompt = "CURRENT FINANCIAL CONTEXT:\n"
-                
-                # Current context section
-                if 'currentContext' in context_data:
-                    current = context_data['currentContext']
-                    if current.get('lastMentionedAmount'):
-                        context_prompt += f"- Last mentioned amount: {current.get('lastMentionedAmount')} {current.get('lastMentionedCurrency', self.preferred_currency)}\n"
-                    if current.get('lastMentionedItem'):
-                        context_prompt += f"- Last mentioned item/category: {current.get('lastMentionedItem')}\n"
-                    if current.get('lastDetectedType'):
-                        context_prompt += f"- Last purchase type: {current.get('lastDetectedType')} (impulse or reasonable)\n"
-                    if current.get('ongoingDiscussion'):
-                        context_prompt += "- This is a continuation of an ongoing financial discussion\n"
-                
-                # Historical context section
-                if 'historicalContext' in context_data:
-                    historical = context_data['historicalContext']
-                    if historical.get('mentionedItems') and len(historical.get('mentionedItems', [])) > 0:
-                        context_prompt += f"- Previously mentioned items: {', '.join(historical.get('mentionedItems')[-5:])}\n"
-                    if historical.get('mentionedAmounts') and len(historical.get('mentionedAmounts', [])) > 0:
-                        amounts = [f"{a.get('amount')} {a.get('currency', 'EUR')}" for a in historical.get('mentionedAmounts')[-3:]]
-                        context_prompt += f"- Previously mentioned amounts: {', '.join(amounts)}\n"
-                    if historical.get('discussionStartTime'):
-                        context_prompt += f"- Discussion started at: {historical.get('discussionStartTime')}\n"
-                
-                # Conversation flow context
-                if 'conversationFlow' in context_data:
-                    flow = context_data['conversationFlow']
-                    if flow.get('personalityMode'):
-                        context_prompt += f"- Current personality mode: {flow.get('personalityMode')}\n"
-                    if flow.get('messageCount'):
-                        context_prompt += f"- Total messages in conversation: {flow.get('messageCount')}\n"
-                
-                context_prompt += "\n"
+                context_prompt = "CONTEXT DATA:\n"
+                for key, value in context_data.items():
+                    context_prompt += f"{key}: {value}\n"
+            
+            # Set personality instruction based on mode
+            personality_instruction = "Respond in a helpful, friendly manner."
+            if hasattr(self, 'personality_mode'):
+                if self.personality_mode == 'funny':
+                    personality_instruction = "Respond with light humor while being helpful."
+                elif self.personality_mode == 'irony':
+                    personality_instruction = "Respond with a touch of irony while being helpful."
             
             # Combine all context for the model with clear section separators
             full_prompt = f"""
@@ -214,65 +428,36 @@ INSTRUCTIONS:
 6. For reasonable expenses, acknowledge the necessity and suggest budget allocation
 7. If the user is asking about a previous purchase, refer to the context data to provide a relevant response
 8. End with a natural follow-up question to continue the conversation when appropriate
+9. IMPORTANT: Respond in {self.language} language
 """
             
-            response = self.client.models.generate_content(
-                model="gemini-2.0-flash",
-                config=types.GenerateContentConfig(
-                    system_instruction=self.system_instruction,
-                    temperature=0.2,
-                    max_output_tokens=800
-                ),
-                contents=[full_prompt]
+            # Use self.model instead of self.client.models
+            response = self.model.generate_content(
+                contents=[full_prompt],
+                generation_config={
+                    "temperature": 0.2,
+                    "max_output_tokens": 800
+                }
             )
             
             # Extract the response text
             response_text = response.text
             
-            # Try to extract JSON data if present
+            # Extract financial data from the response
             financial_data = self._extract_financial_data(response_text)
             
-            # Clean the response text by removing any JSON
-            cleaned_response = self._clean_response_text(response_text)
-            
-            # If we detected an amount but no category, try to infer it
-            if financial_data and 'amount' in financial_data and ('category' not in financial_data or not financial_data['category']):
-                financial_data['category'] = self._infer_category(message)
-                
-            # If we have financial data but no type, classify it
-            if financial_data and 'type' not in financial_data:
-                financial_data['type'] = self._classify_spending_type(message, financial_data.get('category', ''))
-            
-            result = {"response": cleaned_response}
-            if financial_data:
-                # Ensure the financial data has all required fields
-                financial_data = self._ensure_complete_financial_data(financial_data)
-                result["financialData"] = financial_data
-                
-                # For reasonable expenses, generate a concise response based on personality mode
-                if financial_data.get('type') == 'reasonable':
-                    category = financial_data.get('category', 'general')
-                    amount = financial_data.get('amount', 0)
-                    
-                    if self.personality_mode == "nice":
-                        result["response"] = f"Added {self.currency_symbols[self.preferred_currency]}{amount} for {category} to your budget."
-                    else:  # sarcastic mode
-                        sarcastic_responses = [
-                            f"Fine, I've added your {self.currency_symbols[self.preferred_currency]}{amount} {category} expense to your budget. Happy now?",
-                            f"{self.currency_symbols[self.preferred_currency]}{amount} on {category}? Added to your budget. Your accountant would be so proud.",
-                            f"Another {self.currency_symbols[self.preferred_currency]}{amount} for {category}? Added to your budget. At least it's not another impulse buy.",
-                            f"Budget updated: {self.currency_symbols[self.preferred_currency]}{amount} for {category}. Your future self sends their regards.",
-                            f"{self.currency_symbols[self.preferred_currency]}{amount} for {category} - necessary, I suppose. Added to your budget."
-                        ]
-                        import random
-                        result["response"] = random.choice(sarcastic_responses)
-            
-            logger.info(f"Analysis complete. Financial data detected: {bool(financial_data)}")
-            return result
+            return {
+                'is_impulse': financial_data.get('is_impulse', False) if financial_data else False,
+                'amount': financial_data.get('amount', None) if financial_data else None,
+                'category': financial_data.get('category', None) if financial_data else None,
+                'response': response_text,
+                'financial_data': financial_data
+            }
             
         except Exception as e:
-            logger.error(f"Error in Gemini API call: {str(e)}", exc_info=True)
-            return {"response": "I'm sorry, I encountered an error processing your request. Please try again."}
+            logger.error(f"Error in Gemini API call: {str(e)}")
+            # Fall back to rule-based analysis
+            return self._analyze_message_rule_based(message)
     
     def generate_investment_advice(self, amount: float, category: str) -> Dict[str, Any]:
         """Generate investment alternatives for a specific amount"""
@@ -304,9 +489,12 @@ INSTRUCTIONS:
         """Generate budgeting advice for reasonable spending"""
         logger.info(f"Generating budget advice for {self.currency_symbols[self.preferred_currency]}{amount} in category: {category}")
         
+        # Translate category if needed
+        translated_category = self._translate_category(category, self.language)
+        
         # Prepare a prompt for the model
         prompt = f"""
-The user is spending {self.currency_symbols[self.preferred_currency]}{amount} on {category}, which appears to be a reasonable expense.
+The user is spending {self.currency_symbols[self.preferred_currency]}{amount} on {translated_category}, which appears to be a reasonable expense.
 Generate a very brief response acknowledging this expense has been added to their budget.
 If in sarcastic mode, add a touch of dry humor.
 """
@@ -322,18 +510,32 @@ If in sarcastic mode, add a touch of dry humor.
         
         try:
             # For reasonable expenses, keep responses very brief
-            if self.personality_mode == "nice":
-                result["response"] = f"Added {self.currency_symbols[self.preferred_currency]}{amount} for {category} to your budget."
-            else:  # sarcastic mode
-                sarcastic_responses = [
-                    f"Fine, I've added your {self.currency_symbols[self.preferred_currency]}{amount} {category} expense to your budget. Happy now?",
-                    f"{self.currency_symbols[self.preferred_currency]}{amount} on {category}? Added to your budget. Your accountant would be so proud.",
-                    f"Another {self.currency_symbols[self.preferred_currency]}{amount} for {category}? Added to your budget. At least it's not another impulse buy.",
-                    f"Budget updated: {self.currency_symbols[self.preferred_currency]}{amount} for {category}. Your future self sends their regards.",
-                    f"{self.currency_symbols[self.preferred_currency]}{amount} for {category} - necessary, I suppose. Added to your budget."
-                ]
-                import random
-                result["response"] = random.choice(sarcastic_responses)
+            if self.language == 'fr':
+                if self.personality_mode == "nice":
+                    result["response"] = f"J'ai ajouté {self.currency_symbols[self.preferred_currency]}{amount} pour {translated_category} à votre budget."
+                else:  # sarcastic mode
+                    sarcastic_responses = [
+                        f"Bon, j'ai ajouté vos {self.currency_symbols[self.preferred_currency]}{amount} de dépense {translated_category} à votre budget. Content maintenant ?",
+                        f"{self.currency_symbols[self.preferred_currency]}{amount} pour {translated_category} ? Ajouté à votre budget. Votre comptable serait si fier.",
+                        f"Encore {self.currency_symbols[self.preferred_currency]}{amount} pour {translated_category} ? Ajouté à votre budget. Au moins ce n'est pas un autre achat impulsif.",
+                        f"Budget mis à jour : {self.currency_symbols[self.preferred_currency]}{amount} pour {translated_category}. Votre futur vous envoie ses salutations.",
+                        f"{self.currency_symbols[self.preferred_currency]}{amount} pour {translated_category} - nécessaire, je suppose. Ajouté à votre budget."
+                    ]
+                    import random
+                    result["response"] = random.choice(sarcastic_responses)
+            else:  # English
+                if self.personality_mode == "nice":
+                    result["response"] = f"Added {self.currency_symbols[self.preferred_currency]}{amount} for {category} to your budget."
+                else:  # sarcastic mode
+                    sarcastic_responses = [
+                        f"Fine, I've added your {self.currency_symbols[self.preferred_currency]}{amount} {category} expense to your budget. Happy now?",
+                        f"{self.currency_symbols[self.preferred_currency]}{amount} on {category}? Added to your budget. Your accountant would be so proud.",
+                        f"Another {self.currency_symbols[self.preferred_currency]}{amount} for {category}? Added to your budget. At least it's not another impulse buy.",
+                        f"Budget updated: {self.currency_symbols[self.preferred_currency]}{amount} for {category}. Your future self sends their regards.",
+                        f"{self.currency_symbols[self.preferred_currency]}{amount} for {category} - necessary, I suppose. Added to your budget."
+                    ]
+                    import random
+                    result["response"] = random.choice(sarcastic_responses)
                 
             return result
         except Exception as e:
@@ -543,4 +745,62 @@ If in sarcastic mode, add a touch of dry humor.
         text = re.sub(r'\n{3,}', '\n\n', text)
         text = text.strip()
         
-        return text 
+        return text
+        
+    def get_response(self, message: str, system_prompt: str = None, conversation_history: list = None, context_data: dict = None, language: str = "fr") -> str:
+        """Get a response from the Gemini model
+        
+        Args:
+            message: The user's message
+            system_prompt: Optional system prompt to override the default
+            conversation_history: List of previous messages in the conversation
+            context_data: Additional context about the conversation
+            language: The language to respond in (default: "fr")
+        
+        Returns:
+            The model's response
+        """
+        try:
+            # Set the language for this response
+            self.language = language
+            
+            # Analyze the message and get a response
+            result = self.analyze_message(message, conversation_history, context_data)
+            
+            # Return the response text
+            return result.get('response', 'Sorry, I could not generate a response.')
+        except Exception as e:
+            logger.error(f"Error getting response from Gemini: {str(e)}")
+            
+            # Fallback responses based on language
+            if language == 'fr':
+                return "Désolé, je n'ai pas pu traiter votre demande. Veuillez réessayer."
+            else:
+                return "Sorry, I couldn't process your request. Please try again."
+
+    def _translate_category(self, category: str, language: str) -> str:
+        """Translate a category name to the specified language
+        
+        Args:
+            category: The category name in English
+            language: The target language code
+            
+        Returns:
+            The translated category name
+        """
+        if language == 'en' or language not in self.category_translations:
+            return category
+            
+        category_lower = category.lower()
+        translations = self.category_translations[language]
+        
+        if category_lower in translations:
+            return translations[category_lower]
+            
+        # Try to find partial matches
+        for eng_cat, translated_cat in translations.items():
+            if eng_cat in category_lower or category_lower in eng_cat:
+                return translated_cat
+                
+        # Return original if no translation found
+        return category 

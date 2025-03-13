@@ -89,7 +89,7 @@ const ChatInterface = () => {
               <div className="flex rounded-lg overflow-hidden" style={{ 
                 backgroundColor: theme === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.05)'
               }}>
-                {['nice', 'direct', 'analytical'].map(mode => (
+                {['nice', 'funny', 'irony'].map(mode => (
                   <button
                     key={mode}
                     className="px-3 py-1 text-sm transition-colors duration-200"
@@ -103,7 +103,7 @@ const ChatInterface = () => {
                     }}
                     onClick={() => setPersonalityMode(mode)}
                   >
-                    {t('personality' + mode.charAt(0).toUpperCase() + mode.slice(1))}
+                    {t(mode)}
                   </button>
                 ))}
               </div>
@@ -223,7 +223,7 @@ const ChatInterface = () => {
                             : 'var(--color-primary)'
                         }}
                       >
-                        {t('personality' + msg.personalityMode.charAt(0).toUpperCase() + msg.personalityMode.slice(1))}
+                        {t(msg.personalityMode)}
                       </span>
                     </div>
                   )}

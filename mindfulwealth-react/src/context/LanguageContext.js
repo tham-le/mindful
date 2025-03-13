@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from './AuthContext';
 
 // Translations
 const translationData = {
@@ -46,24 +47,36 @@ const translationData = {
     
     // Personality
     nice: 'Nice',
-    direct: 'Direct',
-    analytical: 'Analytical',
-    switchedToNice: "I'll be supportive and encouraging.",
-    switchedToDirect: "I'll be straightforward and to the point.",
-    switchedToAnalytical: "I'll be data-driven and thorough.",
+    funny: 'Funny',
+    irony: 'Ironic',
+    switchedToNice: "I'll be supportive and encouraging with my financial advice.",
+    switchedToFunny: "I'll add some humor to my financial advice. Let's have fun with money!",
+    switchedToIrony: "I'll be a bit sarcastic with my financial advice. Don't take it personally!",
     switchedTo: 'Switched to',
     mode: 'mode',
     personalityNice: 'Nice',
-    personalityDirect: 'Direct',
-    personalityAnalytical: 'Analytical',
+    personalityFunny: 'Funny',
+    personalityIrony: 'Ironic',
     personalityNiceDesc: 'Warm, supportive, and encouraging',
-    personalityDirectDesc: 'Straightforward, concise, and to the point',
-    personalityAnalyticalDesc: 'Data-driven, detailed, and thorough',
+    personalityFunnyDesc: 'Humorous, light-hearted, and entertaining',
+    personalityIronyDesc: 'Sarcastic, witty, and slightly cynical',
     
     // User Profile
     userSettings: 'User Settings',
     name: 'Name',
     email: 'Email',
+    memberSince: 'Member Since',
+    lastLogin: 'Last Login',
+    editProfile: 'Edit Profile',
+    appearanceSettings: 'Appearance Settings',
+    logout: 'Logout',
+    confirmLogout: 'Confirm Logout',
+    logoutConfirmMessage: 'Are you sure you want to logout?',
+    cancel: 'Cancel',
+    save: 'Save',
+    accountType: 'Account Type',
+    demoUser: 'Demo User',
+    registeredUser: 'Registered User',
     financialSettings: 'Financial Settings',
     preferredCurrency: 'Preferred Currency',
     monthlySavingsGoal: 'Monthly Savings Goal',
@@ -174,24 +187,36 @@ const translationData = {
     
     // Personality
     nice: 'Gentil',
-    direct: 'Direct',
-    analytical: 'Analytique',
-    switchedToNice: "Je serai encourageant et bienveillant.",
-    switchedToDirect: "Je serai direct et précis.",
-    switchedToAnalytical: "Je serai axé sur les données et approfondi.",
+    funny: 'Amusant',
+    irony: 'Ironique',
+    switchedToNice: "Je serai encourageant et bienveillant avec mon conseil financier.",
+    switchedToFunny: "Je vais ajouter un peu d'humour à mon conseil financier. Amusons-nous avec l'argent!",
+    switchedToIrony: "Je vais être un peu sarcastique avec mon conseil financier. Ne prenez pas ça personnellement!",
     switchedTo: 'Passé en mode',
     mode: '',
-    personalityNice: 'Amical',
-    personalityDirect: 'Direct',
-    personalityAnalytical: 'Analytique',
+    personalityNice: 'Gentil',
+    personalityFunny: 'Amusant',
+    personalityIrony: 'Ironique',
     personalityNiceDesc: 'Chaleureux, encourageant et bienveillant',
-    personalityDirectDesc: 'Franc, concis et précis',
-    personalityAnalyticalDesc: 'Axé sur les données, détaillé et approfondi',
+    personalityFunnyDesc: 'Humoristique, léger et divertissant',
+    personalityIronyDesc: 'Sarcastique, désinvolte et légèrement cynique',
     
     // User Profile
     userSettings: 'Paramètres Utilisateur',
     name: 'Nom',
     email: 'Email',
+    memberSince: 'Membre Depuis',
+    lastLogin: 'Dernière Connexion',
+    editProfile: 'Modifier le Profil',
+    appearanceSettings: 'Paramètres d\'Apparence',
+    logout: 'Déconnexion',
+    confirmLogout: 'Confirmer la Déconnexion',
+    logoutConfirmMessage: 'Êtes-vous sûr de vouloir vous déconnecter?',
+    cancel: 'Annuler',
+    save: 'Enregistrer',
+    accountType: 'Type de Compte',
+    demoUser: 'Utilisateur Démo',
+    registeredUser: 'Utilisateur Enregistré',
     financialSettings: 'Paramètres Financiers',
     preferredCurrency: 'Devise Préférée',
     monthlySavingsGoal: 'Objectif d\'Épargne Mensuel',
@@ -265,26 +290,40 @@ const LanguageContext = createContext();
 export const useLanguage = () => useContext(LanguageContext);
 
 export const LanguageProvider = ({ children }) => {
+  const { user, updatePreferences } = useAuth() || { user: null, updatePreferences: null };
+  
   const [language, setLanguage] = useState(() => {
+    // First try to get from user preferences
+    if (user?.language_preference) {
+      return user.language_preference;
+    }
+    // Then try to get from localStorage
     const savedLanguage = localStorage.getItem('language');
-    return savedLanguage || 'en';
+    return savedLanguage || 'fr';
   });
 
-  const [translations, setTranslations] = useState(() => {
-    const lang = localStorage.getItem('language') || 'en';
-    return translationData[lang];
-  });
+  // Update language when user changes
+  useEffect(() => {
+    if (user && user.language_preference && user.language_preference !== language) {
+      setLanguage(user.language_preference);
+    }
+  }, [user, language]);
 
   useEffect(() => {
     localStorage.setItem('language', language);
-    setTranslations(translationData[language]);
-  }, [language]);
+    
+    // Save to user preferences if logged in
+    if (user && updatePreferences) {
+      updatePreferences({ language_preference: language });
+    }
+  }, [language, user, updatePreferences]);
 
   const changeLanguage = (lang) => {
     setLanguage(lang);
   };
 
   const t = (key) => {
+    const translations = translationData[language] || translationData.fr;
     return translations[key] || key;
   };
 
@@ -294,7 +333,8 @@ export const LanguageProvider = ({ children }) => {
         language,
         changeLanguage,
         t,
-        translations
+        isEnglish: language === 'en',
+        isFrench: language === 'fr'
       }}
     >
       {children}

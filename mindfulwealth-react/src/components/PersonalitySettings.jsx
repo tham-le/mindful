@@ -10,8 +10,8 @@ const PersonalitySettings = ({ onClose }) => {
 
   const personalities = [
     { id: 'nice', name: t('personalityNice'), description: t('personalityNiceDesc') },
-    { id: 'direct', name: t('personalityDirect'), description: t('personalityDirectDesc') },
-    { id: 'analytical', name: t('personalityAnalytical'), description: t('personalityAnalyticalDesc') }
+    { id: 'funny', name: t('personalityFunny'), description: t('personalityFunnyDesc') },
+    { id: 'irony', name: t('personalityIrony'), description: t('personalityIronyDesc') }
   ];
 
   return (

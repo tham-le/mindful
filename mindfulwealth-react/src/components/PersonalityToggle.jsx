@@ -16,9 +16,18 @@ const PersonalityToggle = ({ currentMode }) => {
         setPersonalityMode(mode);
         
         // Add a message from the bot indicating the mode change
+        let switchMessage = '';
+        if (mode === 'nice') {
+          switchMessage = t('switchedToNice');
+        } else if (mode === 'funny') {
+          switchMessage = t('switchedToFunny');
+        } else if (mode === 'irony') {
+          switchMessage = t('switchedToIrony');
+        }
+        
         addMessage({
           sender: 'bot',
-          text: `${t('switchedTo')} ${t('personality' + mode.charAt(0).toUpperCase() + mode.slice(1))} ${t('mode')}.`,
+          text: switchMessage,
           timestamp: new Date().toISOString(),
           personalityMode: mode, // Add the personality mode to the message
         });
@@ -46,7 +55,7 @@ const PersonalityToggle = ({ currentMode }) => {
             backgroundColor: theme === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.05)'
           }}
         >
-          {['nice', 'direct', 'analytical'].map((mode, index) => (
+          {['nice', 'funny', 'irony'].map((mode, index) => (
             <React.Fragment key={mode}>
               {index > 0 && (
                 <div className="mx-1" style={{ opacity: theme === 'dark' ? 0.5 : 0.3 }}>|</div>
@@ -65,7 +74,7 @@ const PersonalityToggle = ({ currentMode }) => {
                     : theme === 'dark' ? 'var(--color-text-primary)' : 'var(--color-text-primary)'
                 }}
               >
-                {t('personality' + mode.charAt(0).toUpperCase() + mode.slice(1))}
+                {t(mode)}
               </button>
             </React.Fragment>
           ))}

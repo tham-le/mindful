@@ -1,213 +1,283 @@
-# MindfulWealth Chatbot
+# MindfulWealth - Financial Wellness Assistant
 
-A financial chatbot that helps transform shopping impulses into investment growth opportunities.
-
-## Project Overview
-
-MindfulWealth analyzes user messages about spending intentions or completed purchases, detects impulsive buying patterns, and provides guidance to redirect spending toward investments. The application features both a conversational interface and data visualization dashboard.
+MindfulWealth is a personal financial wellness assistant that helps users manage their finances, track spending, set budgets, and make mindful financial decisions.
 
 ## Features
 
-- **Conversational Interface**: Natural language processing for financial queries
-- **Impulse Detection**: Recognition of impulsive buying patterns through text analysis
-- **Investment Redirection**: Personalized investment suggestions based on spending patterns
-- **Financial Dashboard**: Visualize budget, spending, and potential investment growth
-- **Robust Error Handling**: Graceful handling of connection issues and API errors
-- **Smart Spending Classification**: Automatically distinguishes between impulse purchases and necessary expenses
-- **Budget Integration**: Necessary expenses are automatically added to your monthly budget
-- **Category Detection**: Automatic categorization of spending intentions
-- **Personality Modes**: Choose between "Nice" and "Sarcastic" response styles
-- **Currency Selection**: Switch between EUR, GBP, and USD with a simple toggle (default: EUR)
-- **Mobile-Friendly Design**: Responsive layout that works well on all devices
-
-## How It Works
-
-MindfulWealth uses advanced natural language processing to analyze your spending messages:
-
-1. **Spending Classification**: The AI determines if your purchase is:
-   - **Impulse Purchase**: Non-essential items bought on impulse (e.g., luxury items, gadgets)
-   - **Reasonable Expense**: Essential or planned purchases (e.g., groceries, medical expenses)
-
-2. **Tailored Responses**:
-   - For impulse purchases: Provides investment alternatives and growth projections
-   - For reasonable expenses: Acknowledges the necessity and adds it to your monthly budget
-
-3. **Personality Modes**:
-   - **Nice Mode**: Supportive, encouraging, and gentle responses
-   - **Sarcastic Mode**: Witty, humorous responses with a touch of sarcasm
-
-4. **Currency Handling**:
-   - Choose your preferred currency (EUR, GBP, USD) from the header or footer
-   - Automatically detects and converts currencies in user messages
-   - All financial calculations are standardized to your selected currency
-
-5. **Essential Categories**: Automatically recognizes essential spending categories like:
-   - Medical/Healthcare
-   - Groceries/Food essentials
-   - Housing/Rent/Mortgage
-   - Utilities
-   - Transportation necessities
-   - Education
-   - Childcare
+- **User Authentication**: Register, login, or use a demo account without registration
+- **Financial Dashboard**: View your financial overview, including spending, budget, and savings
+- **Transaction Tracking**: Record and categorize your financial transactions
+- **Budget Management**: Set and track budgets by category
+- **Impulse Purchase Redirection**: Save money by redirecting impulse purchases to savings
+- **Chat Interface**: Interact with the financial assistant through a chat interface
+- **Personalization**: Choose between different personality modes for the assistant
 
 ## Tech Stack
 
-### Frontend
-- Vue.js 3 with Composition API
-- Vite as the build tool
-- Chart.js for data visualization
+- **Frontend**: React, Tailwind CSS, Chart.js
+- **Backend**: Flask, SQLAlchemy, SQLite
+- **Authentication**: JWT (JSON Web Tokens)
 
-### Backend
-- Flask RESTful API
-- SQLite database (for MVP)
-- Google Gemini 2.0 Flash for natural language processing
-
-## Setup Instructions
+## Getting Started
 
 ### Prerequisites
-- Node.js (v16+)
-- Python (v3.8+)
-- Google Gemini API key (optional for development)
 
-### Frontend Setup
+- Python 3.8+
+- Node.js 14+
+- npm 6+
+- python3-venv package (for virtual environment)
+
+On Ubuntu/Debian, you can install the required packages with:
 ```bash
-# Navigate to the frontend directory
-cd mindfulwealth
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
+sudo apt update
+sudo apt install python3 python3-pip python3-venv nodejs npm
 ```
 
-### Backend Setup
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/mindfulwealth.git
+   cd mindfulwealth
+   ```
+
+2. Run the setup script to install dependencies:
+   ```bash
+   chmod +x setup.sh
+   ./setup.sh
+   ```
+
+   This script will:
+   - Create a Python virtual environment
+   - Install backend dependencies
+   - Run database migrations
+   - Initialize the database
+   - Install frontend dependencies
+
+3. Start the application:
+   ```bash
+   chmod +x start.sh
+   ./start.sh
+   ```
+
+   This script will:
+   - Activate the Python virtual environment
+   - Start the backend server
+   - Start the frontend server
+
+4. Access the application:
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:5000
+
+### Setting Up AI-Powered Financial Advice
+
+By default, the application uses mock responses for the chat functionality. To enable AI-powered financial advice using Google's Gemini API:
+
+1. Get a free Gemini API key from [Google AI Studio](https://ai.google.dev/)
+
+2. Run the Gemini setup script:
+   ```bash
+   chmod +x setup_gemini.sh
+   ./setup_gemini.sh
+   ```
+
+3. Follow the prompts to enter your API key
+
+4. Restart the application:
+   ```bash
+   ./start.sh
+   ```
+
+### Database Issues
+
+If you encounter database-related errors (such as missing columns or tables), you can fix them by running:
+
 ```bash
-# Navigate to the backend directory
-cd backend
-
-# Create a virtual environment (recommended)
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Set up environment variables
-# Create a .env file with:
-# GEMINI_API_KEY=your_api_key_here
-
-# Start the Flask server
-python app.py
+chmod +x fix_database.sh
+./fix_database.sh
 ```
 
-### Quick Start
-For convenience, you can use the provided start script to launch both servers:
+This script will:
+1. Back up your current database
+2. Run the migration script to update the schema
+3. Initialize the database with the updated schema
+
+For a complete summary of how we addressed a specific database issue, see [Database Fix Summary](docs/database_fix_summary.md).
+
+### Troubleshooting
+
+If you encounter any issues with the application, please check the following:
+
+- Ensure all dependencies are installed
+- Verify that the database is properly initialized
+- Check that both frontend and backend servers are running
+
+For detailed troubleshooting information, see the [Troubleshooting Guide](docs/troubleshooting.md).
+
+For database-specific issues, see the [Database Troubleshooting Guide](docs/database_troubleshooting.md).
+
+## Manual Setup
+
+If you prefer to set up the application manually:
+
+#### Backend Setup
+
+1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
+
+2. Create a virtual environment:
+   ```bash
+   python3 -m venv venv
+   ```
+
+3. Activate the virtual environment:
+   - On Windows: `venv\Scripts\activate`
+   - On macOS/Linux: `source venv/bin/activate`
+
+4. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+5. Run database migrations:
+   ```bash
+   python migrate_db.py
+   ```
+
+6. Initialize the database:
+   ```bash
+   python init_db.py
+   ```
+
+7. Start the backend server:
+   ```bash
+   python run.py
+   ```
+
+#### Frontend Setup
+
+1. Navigate to the frontend directory:
+   ```bash
+   cd mindfulwealth-react
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Start the frontend server:
+   ```bash
+   npm start
+   ```
+
+## API Endpoints
+
+### Authentication
+
+- `POST /api/auth/register`: Register a new user
+- `POST /api/auth/login`: Login a user
+- `POST /api/auth/demo`: Create a demo user
+- `POST /api/auth/refresh`: Refresh access token
+- `GET /api/auth/me`: Get current user information
+
+### Transactions
+
+- `GET /api/transactions`: Get user transactions
+- `POST /api/transactions`: Add a new transaction
+
+### Budget
+
+- `GET /api/budget`: Get user budget
+- `POST /api/budget`: Update budget
+
+### Saved Impulses
+
+- `GET /api/saved-impulses`: Get saved impulses
+- `POST /api/saved-impulses`: Add a new saved impulse
+
+### Dashboard
+
+- `GET /api/dashboard`: Get dashboard data
+
+### Chat
+
+- `POST /api/chat`: Send a message to the financial assistant
+
+### Settings
+
+- `GET /api/currency`: Get preferred currency
+- `POST /api/currency`: Set preferred currency
+- `POST /api/personality`: Set personality mode
+
+## Authentication Flow
+
+1. **Registration**: Users can register with a name, email, and password
+2. **Login**: Users can login with their email and password
+3. **Demo User**: Users can create a demo account without registration
+4. **Token-based Authentication**: JWT tokens are used for authentication
+   - Access token: Short-lived token for API access
+   - Refresh token: Long-lived token for obtaining new access tokens
+
+## Database Management
+
+### Database Schema
+
+The application uses SQLite for data storage with the following tables:
+- `users`: Stores user information including authentication details
+- `transactions`: Records financial transactions
+- `budgets`: Stores budget information
+- `saved_impulses`: Tracks saved impulse purchases
+
+For a detailed description of the database schema, see [Database Schema Documentation](docs/database_schema.md).
+
+### Database Migrations
+
+The application includes a migration system to handle database schema changes:
+
+1. **Automatic Migration**: The `migrate_db.py` script automatically updates the database schema when the application structure changes.
+2. **Schema Recreation**: For significant changes, the migration script recreates tables while preserving existing data.
+3. **Backup System**: Before any migration, the current database is backed up to `mindfulwealth.db.backup`.
+4. **Field Name Compatibility**: The system handles discrepancies between frontend and backend field names.
+
+For details on how we resolved a specific migration issue, see [Database Migration Summary](docs/database_migration_summary.md).
+
+For a comprehensive overview of the database migration system improvements, see [Database Improvements](docs/database_improvements.md).
+
+### Database Issues
+
+If you encounter database-related errors (such as missing columns or tables), you can fix them by running:
 
 ```bash
-# Make the script executable
-chmod +x start.sh
-
-# Run the script
-./start.sh
+chmod +x fix_database.sh
+./fix_database.sh
 ```
 
-## Testing
+This script will:
+1. Back up your current database
+2. Run the migration script to update the schema
+3. Initialize the database with the updated schema
 
-### Backend API Testing
-A test script is provided to verify the backend API functionality:
+#### Common Database Errors
 
-```bash
-# Make sure the backend server is running
-cd backend
-./test_api.py
-```
+- **"no such column"**: Indicates the database schema is outdated
+- **"Cannot add a UNIQUE column"**: Occurs when trying to add a column with a UNIQUE constraint to an existing table with data
+- **"no such table"**: Indicates a missing table in the database
 
-This will test all API endpoints and provide a summary of results.
-
-## Usage
-
-1. Start both the frontend and backend servers
-2. Open your browser to http://localhost:5173
-3. Select your preferred currency using the currency selector in the header or footer
-4. Toggle between "Nice" and "Sarcastic" personality modes using the switch in the chat header
-5. Interact with the chatbot by typing messages about purchases
-6. View your financial data in the dashboard
-7. Track redirected impulse purchases in the Impulse Tracker
-
-## Example Interactions
-
-### Impulse Purchase (Nice Mode)
-```
-User: "I'm thinking of buying a new smartwatch for €299"
-Bot: "That sounds like an impulse purchase. If you invested €299 instead, it could grow to €323 in one year and €439 in five years at an 8% annual return."
-```
-
-### Reasonable Expense (Nice Mode)
-```
-User: "I need to pay €120 for my prescription medication"
-Bot: "Added €120 for medical to your budget."
-```
-
-### Reasonable Expense (Sarcastic Mode)
-```
-User: "I bought 200 dollars of groceries"
-Bot: "€184 on groceries? Added to your budget. Your accountant would be so proud."
-```
-
-### Multi-Currency Support
-```
-User: "I spent 50 pounds on dinner"
-Bot: "Added €59 for dining to your budget."
-```
-
-## Development
-
-### Frontend Structure
-- `src/components/ChatInterface.vue`: Chat input and message display
-- `src/components/FinancialDashboard.vue`: Budget visualization
-- `src/components/ImpulsePurchaseTracker.vue`: Tracked impulse redirections
-- `src/services/api.js`: API communication layer
-
-### Backend Structure
-- `app.py`: Main Flask application
-- `models.py`: Database models
-- `services/gemini_service.py`: Gemini API integration
-- `test_api.py`: API testing script
-
-## Deployment
-
-### Frontend Deployment
-```bash
-# Build for production
-npm run build
-
-# The dist folder can be deployed to any static hosting service
-```
-
-### Backend Deployment
-```bash
-# Install gunicorn (included in requirements.txt)
-# Start with gunicorn
-gunicorn app:app
-```
-
-## Future Enhancements
-
-- User authentication and personalized profiles
-- More sophisticated impulse detection algorithms
-- Expanded investment options and risk assessment
-- Mobile application version
-- Integration with real financial data providers
-- Personalized investment recommendations based on risk profile
-- Additional personality modes and response styles
-
-## Security Notes
-
-- Never commit your `.env` file with API keys to version control
-- The `.env.example` file provides a template for required environment variables
-- For production, use environment variables set on the server rather than `.env` files
+The migration system handles these errors by recreating tables with the new schema while preserving existing data.
 
 ## License
 
-MIT 
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- This project was created as a demonstration of a full-stack financial wellness application.
+- Icons provided by [Heroicons](https://heroicons.com/)
+- UI components styled with [Tailwind CSS](https://tailwindcss.com/)
+
+## Documentation
+
+For detailed documentation about the application, please refer to the [Documentation Index](docs/README.md). 
