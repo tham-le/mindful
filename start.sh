@@ -23,8 +23,8 @@ if [ ! -d "backend" ]; then
 fi
 
 # Check if frontend directory exists
-if [ ! -d "mindfulwealth" ]; then
-  echo "Error: mindfulwealth directory not found."
+if [ ! -d "mindfulwealth-react" ]; then
+  echo "Error: mindfulwealth-react directory not found."
   exit 1
 fi
 
@@ -50,9 +50,9 @@ fi
 cd ..
 
 # Start the frontend server
-echo "Starting Vue.js frontend server..."
-cd mindfulwealth
-npm run dev &
+echo "Starting React frontend server..."
+cd mindfulwealth-react
+npm start &
 FRONTEND_PID=$!
 FRONTEND_EXIT_CODE=$?
 
@@ -77,7 +77,7 @@ function cleanup {
 trap cleanup SIGINT SIGTERM
 
 echo "Both servers are running!"
-echo "Frontend: http://localhost:5173"
+echo "Frontend: http://localhost:3000"
 echo "Backend: http://localhost:5000"
 echo "Press Ctrl+C to stop both servers."
 
