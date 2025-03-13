@@ -3,6 +3,7 @@ import { useConversation } from '../context/ConversationContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import PersonalitySettings from './PersonalitySettings';
+import PersonalityToggle from './PersonalityToggle';
 
 const ChatInterface = () => {
   const [message, setMessage] = useState('');
@@ -82,32 +83,7 @@ const ChatInterface = () => {
           backgroundColor: theme === 'dark' ? 'rgba(0, 0, 0, 0.1)' : 'rgba(0, 0, 0, 0.02)'
         }}>
           <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <span className="text-sm mr-2" style={{ color: 'var(--color-text-secondary)' }}>
-                {t('personality')}:
-              </span>
-              <div className="flex rounded-lg overflow-hidden" style={{ 
-                backgroundColor: theme === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.05)'
-              }}>
-                {['nice', 'funny', 'irony'].map(mode => (
-                  <button
-                    key={mode}
-                    className="px-3 py-1 text-sm transition-colors duration-200"
-                    style={{ 
-                      backgroundColor: personalityMode === mode 
-                        ? 'var(--color-primary)' 
-                        : 'transparent',
-                      color: personalityMode === mode 
-                        ? '#ffffff' 
-                        : 'var(--color-text-primary)'
-                    }}
-                    onClick={() => setPersonalityMode(mode)}
-                  >
-                    {t(mode)}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <PersonalityToggle currentMode={personalityMode} />
             
             <button
               onClick={() => setShowPersonality(!showPersonality)}

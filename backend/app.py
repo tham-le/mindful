@@ -268,41 +268,57 @@ def chat():
 @app.route('/api/personality', methods=['POST'])
 @jwt_required(optional=True)
 def set_personality():
-    """Set the personality mode for the financial advisor"""
-    global personality_mode
-    data = request.json
-    mode = data.get('mode', 'nice')
-    
-    # Validate mode
-    valid_modes = ['nice', 'funny', 'irony']
-    if mode not in valid_modes:
-        return jsonify({'success': False, 'error': 'Invalid personality mode'}), 400
-    
-    personality_mode = mode
-    
-    # Update Gemini service if available
-    if gemini_service:
-        gemini_service.set_personality_mode(mode)
-    
-    # Save preference to user profile if authenticated
-    current_user = get_current_user()
-    if current_user:
-        try:
-            # Create a new session for this operation to avoid transaction issues
-            session = Session()
-            user = session.query(User).filter_by(id=current_user.id).first()
-            if user:
-                user.personality_preference = mode
-                session.commit()
-                logger.info(f"Updated personality preference for user {user.id} to {mode}")
-            else:
-                logger.warning(f"User {current_user.id} not found in database")
-        except Exception as e:
-            logger.error(f"Error updating personality preference: {str(e)}")
-        finally:
-            session.close()
-    
-    return jsonify({'success': True, 'mode': personality_mode})
+    """Set the personality mode for the chatbot"""
+    try:
+        # Get the personality mode from the request
+        data = request.get_json()
+        if not data or 'mode' not in data:
+            return jsonify({'error': 'Missing personality mode'}), 400
+            
+        mode = data['mode']
+        if mode not in ['nice', 'funny', 'irony']:
+            return jsonify({'error': f'Invalid personality mode: {mode}'}), 400
+        
+        # Set the global personality mode
+        global personality_mode
+        personality_mode = mode
+        
+        # Set the personality mode in the Gemini service if available
+        if gemini_service:
+            gemini_service.set_personality_mode(mode)
+            logger.info(f"Personality mode set to: {mode} in Gemini service")
+        
+        # Get the current user if authenticated
+        current_user = get_current_user()
+        
+        # If user is authenticated, update their preference in the database
+        if current_user:
+            try:
+                # Create a new session for this operation
+                session = Session()
+                
+                # Update the user's personality preference
+                user = session.query(User).filter(User.id == current_user.id).first()
+                if user:
+                    user.personality_preference = mode
+                    session.commit()
+                    logger.info(f"Updated personality preference for user {user.id} to {mode}")
+                
+                session.close()
+            except Exception as e:
+                logger.error(f"Error updating personality preference: {str(e)}")
+                # Continue even if database update fails
+        
+        return jsonify({
+            'success': True,
+            'mode': mode
+        })
+    except Exception as e:
+        logger.error(f"Error setting personality mode: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @app.route('/api/currency', methods=['GET', 'POST'])
 def set_currency():
