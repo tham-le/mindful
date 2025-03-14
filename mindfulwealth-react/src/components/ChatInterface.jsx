@@ -14,6 +14,28 @@ const ChatInterface = () => {
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
 
+  // Debug messages
+  useEffect(() => {
+    console.log('Current messages:', messages);
+
+    // Vérifier si les messages sont correctement rendus
+    if (messages.length > 0) {
+      console.log('Nombre de messages:', messages.length);
+      console.log('Dernier message:', messages[messages.length - 1]);
+
+      // Vérifier si le conteneur de messages existe
+      if (messagesContainerRef.current) {
+        console.log('Conteneur de messages trouvé:', messagesContainerRef.current);
+
+        // Vérifier les enfants du conteneur
+        const children = messagesContainerRef.current.querySelectorAll('.whitespace-pre-wrap.break-words');
+        console.log('Nombre d\'éléments de message trouvés dans le DOM:', children.length);
+      } else {
+        console.error('Conteneur de messages non trouvé!');
+      }
+    }
+  }, [messages]);
+
   // Scroll to bottom when messages change or when typing status changes
   useEffect(() => {
     // Only auto-scroll if there are more than 2 messages or if user is at the bottom
@@ -50,11 +72,11 @@ const ChatInterface = () => {
   const shouldPositionAtTop = messages.length < 3;
 
   return (
-    <div className="flex flex-col h-full bg-opacity-80" style={{ 
+    <div className="flex flex-col h-full bg-opacity-80" style={{
       backgroundColor: 'var(--color-bg-primary)',
     }}>
       {/* Fixed header at the top - positioned below the app header */}
-      <div className="fixed left-0 md:left-20 lg:left-64 right-0 z-20 border-b border-opacity-20" style={{ 
+      <div className="fixed left-0 md:left-20 lg:left-64 right-0 z-20 border-b border-opacity-20" style={{
         top: "3.5rem", /* Height of app header only */
         borderColor: 'var(--color-border)',
         backgroundColor: theme === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(255, 255, 255, 0.7)',
@@ -68,7 +90,7 @@ const ChatInterface = () => {
           <button
             onClick={clearConversation}
             className="px-3 py-1 rounded-lg text-sm transition-colors duration-200"
-            style={{ 
+            style={{
               backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
               color: 'var(--color-text-primary)'
             }}
@@ -76,19 +98,19 @@ const ChatInterface = () => {
             {t('clearConversation')}
           </button>
         </div>
-        
+
         {/* Personality panel - always visible */}
-        <div className="px-4 py-2 border-t border-opacity-10" style={{ 
+        <div className="px-4 py-2 border-t border-opacity-10" style={{
           borderColor: 'var(--color-border)',
           backgroundColor: theme === 'dark' ? 'rgba(0, 0, 0, 0.1)' : 'rgba(0, 0, 0, 0.02)'
         }}>
           <div className="flex items-center justify-between">
             <PersonalityToggle currentMode={personalityMode} />
-            
+
             <button
               onClick={() => setShowPersonality(!showPersonality)}
               className="p-2 rounded-full transition-colors duration-200"
-              style={{ 
+              style={{
                 backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
                 color: 'var(--color-text-primary)'
               }}
@@ -99,7 +121,7 @@ const ChatInterface = () => {
               </svg>
             </button>
           </div>
-          
+
           {/* Personality settings panel */}
           {showPersonality && (
             <div className="mt-2">
@@ -108,15 +130,16 @@ const ChatInterface = () => {
           )}
         </div>
       </div>
-      
+
       {/* Empty space to push content below fixed header */}
       <div style={{ height: "110px" }}></div>
-      
+
       {/* Messages container - scrollable */}
-      <div 
+      <div
         ref={messagesContainerRef}
         className="flex-1 overflow-y-auto p-4 space-y-4"
-        style={{ 
+        data-testid="messages-container"
+        style={{
           backgroundColor: 'var(--color-bg-secondary)',
           paddingBottom: '120px', // Increased padding to ensure last message is visible above input and nav bar
           display: 'flex',
@@ -143,14 +166,14 @@ const ChatInterface = () => {
                   <button
                     key={index}
                     className="p-3 text-left rounded-lg transition-colors duration-200"
-                    style={{ 
+                    style={{
                       backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
                       color: 'var(--color-text-primary)'
                     }}
                     onClick={() => {
                       setMessage(question);
                       setTimeout(() => {
-                        handleSubmit({ preventDefault: () => {} });
+                        handleSubmit({ preventDefault: () => { } });
                       }, 100);
                     }}
                   >
@@ -161,18 +184,18 @@ const ChatInterface = () => {
             </div>
           </div>
         ) : (
-          <div className={`space-y-4 ${shouldPositionAtTop ? 'mt-0' : 'mt-auto'}`}>
+          <div className={`space-y-4 ${shouldPositionAtTop ? 'mt-0' : 'mt-auto'} w-full`}>
             {messages.map((msg, index) => (
               <div
                 key={index}
-                className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} w-full`}
+                data-testid={`message-${index}`}
               >
                 <div
-                  className={`max-w-[80%] rounded-lg p-3 ${
-                    msg.sender === 'user'
-                      ? 'rounded-tr-none'
-                      : 'rounded-tl-none'
-                  }`}
+                  className={`max-w-[80%] rounded-lg p-3 ${msg.sender === 'user'
+                    ? 'rounded-tr-none'
+                    : 'rounded-tl-none'
+                    }`}
                   style={{
                     backgroundColor:
                       msg.sender === 'user'
@@ -185,17 +208,17 @@ const ChatInterface = () => {
                     boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)'
                   }}
                 >
-                  <p className="whitespace-pre-wrap break-words">{msg.text}</p>
+                  <p className="whitespace-pre-wrap break-words">{msg.text || "Message vide"}</p>
                   {msg.sender === 'bot' && msg.personalityMode && (
                     <div className="mt-2">
-                      <span 
+                      <span
                         className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
                         style={{
-                          backgroundColor: layoutStyle === 'modern' 
-                            ? `var(--modern-color-primary-light, var(--color-primary-light))` 
+                          backgroundColor: layoutStyle === 'modern'
+                            ? `var(--modern-color-primary-light, var(--color-primary-light))`
                             : 'var(--color-primary-light)',
-                          color: layoutStyle === 'modern' 
-                            ? `var(--modern-color-primary, var(--color-primary))` 
+                          color: layoutStyle === 'modern'
+                            ? `var(--modern-color-primary, var(--color-primary))`
                             : 'var(--color-primary)'
                         }}
                       >
@@ -208,7 +231,7 @@ const ChatInterface = () => {
             ))}
           </div>
         )}
-        
+
         {/* Typing indicator */}
         {isTyping && (
           <div className="flex justify-start">
@@ -228,15 +251,15 @@ const ChatInterface = () => {
             </div>
           </div>
         )}
-        
+
         {/* Invisible element to scroll to */}
         <div ref={messagesEndRef} />
       </div>
-      
+
       {/* Message input - fixed at the bottom, adjusted for desktop sidebar and mobile footer */}
-      <div 
-        className="fixed left-0 md:left-20 lg:left-64 right-0 p-4 border-t border-opacity-20 z-20 md:bottom-0" 
-        style={{ 
+      <div
+        className="fixed left-0 md:left-20 lg:left-64 right-0 p-4 border-t border-opacity-20 z-20 md:bottom-0"
+        style={{
           borderColor: 'var(--color-border)',
           backgroundColor: theme === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(255, 255, 255, 0.7)',
           backdropFilter: 'blur(8px)',
@@ -250,7 +273,7 @@ const ChatInterface = () => {
             onChange={(e) => setMessage(e.target.value)}
             placeholder={t('typeMessage')}
             className="flex-1 p-3 rounded-lg focus:outline-none focus:ring-2 transition-all duration-200"
-            style={{ 
+            style={{
               backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
               color: 'var(--color-text-primary)',
               borderColor: 'var(--color-border)'
@@ -259,9 +282,9 @@ const ChatInterface = () => {
           <button
             type="submit"
             className="p-3 rounded-lg transition-colors duration-200 flex items-center justify-center"
-            style={{ 
-              backgroundColor: layoutStyle === 'modern' 
-                ? 'var(--modern-color-primary, var(--color-primary))' 
+            style={{
+              backgroundColor: layoutStyle === 'modern'
+                ? 'var(--modern-color-primary, var(--color-primary))'
                 : 'var(--color-primary)',
               color: '#ffffff'
             }}
@@ -273,7 +296,7 @@ const ChatInterface = () => {
           </button>
         </form>
       </div>
-      
+
       {/* Empty space to push content above fixed input and mobile navigation */}
       <div className="md:hidden" style={{ height: "150px" }}></div>
       <div className="hidden md:block" style={{ height: "70px" }}></div>

@@ -37,7 +37,8 @@ load_dotenv()
 # Initialize Flask app
 app = Flask(__name__)
 # Enable CORS for all routes with support for credentials
-CORS(app, resources={r"/*": {"origins": "*", "supports_credentials": True}})
+CORS_ORIGINS = os.getenv('CORS_ORIGINS', 'http://localhost:3000').split(',')
+CORS(app, resources={r"/*": {"origins": CORS_ORIGINS, "supports_credentials": True}})
 
 # JWT Configuration
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'dev-secret-key')
@@ -782,6 +783,114 @@ def dashboard():
         if total_saved < 100:
             recommendations.append("Try redirecting more impulse purchases to savings to build your investment portfolio.")
         
+        # Generate portfolio data
+        # In a real app, this would come from actual investment accounts
+        # For demo purposes, we'll create mock data based on total_saved amount
+        total_balance = 24563.00  # This would be fetched from actual accounts in production
+        portfolio = {
+            'total': total_balance,
+            'allocation': {
+                'stocks': 45,
+                'bonds': 30,
+                'cash': 25
+            }
+        }
+        
+        # Generate financial goals
+        # In production, these would be fetched from a goals table
+        goals = [
+            {
+                'name': 'Emergency Fund',
+                'current': min(7500, total_saved),
+                'target': 10000,
+                'progress': min(75, round((total_saved / 10000) * 100))
+            },
+            {
+                'name': 'Vacation Savings',
+                'current': max(0, min(1350, total_saved - 5000)),
+                'target': 3000,
+                'progress': max(0, min(45, round(((total_saved - 5000) / 3000) * 100)))
+            },
+            {
+                'name': 'Home Down Payment',
+                'current': max(0, min(15000, (total_saved - 8000) * 2)),
+                'target': 50000,
+                'progress': max(0, min(30, round(((total_saved - 8000) * 2 / 50000) * 100)))
+            }
+        ]
+        
+        # Generate financial insights based on spending and saving patterns
+        insights = []
+        
+        # Savings rate insight
+        monthly_income = 8350.00  # This would be calculated from income transactions
+        monthly_expenses = total_spent
+        
+        # Calculate savings rate
+        savings_rate = 0
+        if monthly_income > 0:
+            savings_rate = round(((monthly_income - monthly_expenses) / monthly_income) * 100, 1)
+        
+        # Determine if savings rate is improving
+        savings_rate_change = 3.1  # In production, this would be calculated from historical data
+        
+        if savings_rate_change > 0:
+            insights.append({
+                'type': 'positive',
+                'title': 'Positive Trend',
+                'description': f"Your savings rate has increased by {savings_rate_change}% compared to last month. Keep up the good work!"
+            })
+        
+        # Budget optimization insight
+        if over_budget_categories:
+            insights.append({
+                'type': 'suggestion',
+                'title': 'Budget Optimization',
+                'description': f"Consider reallocating your {over_budget_categories[0]['name']} budget or finding ways to reduce spending in this category."
+            })
+        
+        # Subscription optimization
+        if any(c['name'].lower() in ['subscriptions', 'entertainment'] for c in categories):
+            insights.append({
+                'type': 'opportunity',
+                'title': 'Subscription Audit',
+                'description': "Based on your spending patterns, you could save by reviewing your subscriptions and canceling unused services."
+            })
+        
+        # Investment insight
+        if total_saved > 0:
+            insights.append({
+                'type': 'suggestion',
+                'title': 'Investment Opportunity',
+                'description': f"If you redirected just 10% more of your discretionary spending to investments, you could grow your portfolio by an additional €{round(monthly_expenses * 0.1 * 12 * 1.08, 2)} in one year."
+            })
+        
+        # Generate activity feed from transactions and saved impulses
+        activity = []
+        
+        # Add transactions to activity
+        for t in recent_transactions:
+            activity.append({
+                'id': t.id,
+                'title': t.description or f"{t.category.capitalize()} purchase",
+                'time': t.date.strftime('%b %d, %I:%M %p'),
+                'amount': t.amount,
+                'type': 'withdrawal'
+            })
+        
+        # Add saved impulses to activity
+        for i in recent_impulses:
+            activity.append({
+                'id': f"impulse_{i.id}",
+                'title': f"Saved {i.description}",
+                'time': i.date.strftime('%b %d, %I:%M %p'),
+                'amount': i.amount,
+                'type': 'savings'
+            })
+        
+        # Sort by date (newest first)
+        activity.sort(key=lambda x: datetime.strptime(x['time'], '%b %d, %I:%M %p'), reverse=True)
+        
         return jsonify({
             'summary': {
                 'total_spent': total_spent,
@@ -790,6 +899,11 @@ def dashboard():
                 'budget_remaining_pct': budget_remaining_pct,
                 'spending_change_pct': spending_change_pct,
                 'total_saved': total_saved,
+                'total_balance': total_balance,
+                'monthly_income': monthly_income,
+                'monthly_expenses': monthly_expenses,
+                'savingsRate': savings_rate,
+                'savingsRate_change_pct': savings_rate_change,
                 'potential_growth_1yr': potential_growth_1yr,
                 'potential_growth_5yr': potential_growth_5yr,
                 'investment_growth_1yr': investment_growth_1yr,
@@ -803,6 +917,10 @@ def dashboard():
                 'reasonable': reasonable_count,
                 'total': len(current_transactions)
             },
+            'portfolio': portfolio,
+            'activity': activity,
+            'goals': goals,
+            'insights': insights,
             'financial_health': financial_health,
             'recommendations': recommendations,
             'recent_transactions': [t.to_dict() for t in recent_transactions],
@@ -1288,6 +1406,263 @@ def get_categories():
     
     except Exception as e:
         logger.error(f"Error retrieving categories: {str(e)}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+    
+    finally:
+        db_session.close()
+
+@app.route('/api/goals', methods=['GET'])
+@jwt_required()
+def get_financial_goals():
+    """
+    Get financial goals for the current user
+    """
+    current_user = get_current_user()
+    
+    try:
+        # Get the total saved amount from impulses
+        impulses = db_session.query(SavedImpulse).filter_by(user_id=current_user.id).all()
+        total_saved = sum(i.amount for i in impulses)
+        
+        # In a production app, these would be fetched from a goals table
+        # For demo purposes, we'll generate mock goals based on total_saved
+        goals = [
+            {
+                'name': 'Emergency Fund',
+                'current': min(7500, total_saved),
+                'target': 10000,
+                'progress': min(75, round((total_saved / 10000) * 100))
+            },
+            {
+                'name': 'Vacation Savings',
+                'current': max(0, min(1350, total_saved - 5000)),
+                'target': 3000,
+                'progress': max(0, min(45, round(((total_saved - 5000) / 3000) * 100)))
+            },
+            {
+                'name': 'Home Down Payment',
+                'current': max(0, min(15000, (total_saved - 8000) * 2)),
+                'target': 50000,
+                'progress': max(0, min(30, round(((total_saved - 8000) * 2 / 50000) * 100)))
+            }
+        ]
+        
+        return jsonify(goals)
+    
+    except Exception as e:
+        logger.error(f"Error retrieving financial goals: {str(e)}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+    
+    finally:
+        db_session.close()
+
+@app.route('/api/portfolio', methods=['GET'])
+@jwt_required()
+def get_portfolio_overview():
+    """
+    Get portfolio overview for the current user
+    """
+    current_user = get_current_user()
+    
+    try:
+        # Get the total saved amount from impulses
+        impulses = db_session.query(SavedImpulse).filter_by(user_id=current_user.id).all()
+        total_saved = sum(i.amount for i in impulses)
+        
+        # In a production app, this would come from actual investment accounts
+        # For demo purposes, we'll create mock data based on total_saved
+        total_balance = max(24563.00, total_saved * 1.5)  # Base value plus savings
+        
+        portfolio = {
+            'total': total_balance,
+            'allocation': {
+                'stocks': 45,
+                'bonds': 30,
+                'cash': 25
+            },
+            'performance': {
+                'ytd': 5.2,
+                'oneYear': 8.7,
+                'threeYears': 24.3
+            }
+        }
+        
+        return jsonify(portfolio)
+    
+    except Exception as e:
+        logger.error(f"Error retrieving portfolio overview: {str(e)}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+    
+    finally:
+        db_session.close()
+
+@app.route('/api/activity', methods=['GET'])
+@jwt_required()
+def get_recent_activity():
+    """
+    Get recent activity for the current user
+    """
+    current_user = get_current_user()
+    
+    try:
+        # Get recent transactions
+        recent_transactions = db_session.query(Transaction).filter_by(
+            user_id=current_user.id
+        ).order_by(Transaction.date.desc()).limit(10).all()
+        
+        # Get recent saved impulses
+        recent_impulses = db_session.query(SavedImpulse).filter_by(
+            user_id=current_user.id
+        ).order_by(SavedImpulse.date.desc()).limit(10).all()
+        
+        # Combine into activity feed
+        activity = []
+        
+        # Add transactions to activity
+        for t in recent_transactions:
+            activity.append({
+                'id': t.id,
+                'title': t.description or f"{t.category.capitalize()} purchase",
+                'time': t.date.strftime('%b %d, %I:%M %p'),
+                'amount': t.amount,
+                'type': 'withdrawal'
+            })
+        
+        # Add saved impulses to activity
+        for i in recent_impulses:
+            activity.append({
+                'id': f"impulse_{i.id}",
+                'title': f"Saved {i.description}",
+                'time': i.date.strftime('%b %d, %I:%M %p'),
+                'amount': i.amount,
+                'type': 'savings'
+            })
+        
+        # Sort by date (newest first)
+        activity.sort(key=lambda x: datetime.strptime(x['time'], '%b %d, %I:%M %p'), reverse=True)
+        
+        # Return top 10
+        return jsonify(activity[:10])
+    
+    except Exception as e:
+        logger.error(f"Error retrieving recent activity: {str(e)}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+    
+    finally:
+        db_session.close()
+
+@app.route('/api/insights', methods=['GET'])
+@jwt_required()
+def get_financial_insights():
+    """
+    Get financial insights for the current user
+    """
+    current_user = get_current_user()
+    
+    try:
+        # Get current month and year
+        current_month = datetime.now().month
+        current_year = datetime.now().year
+        
+        # Get transactions for current month
+        transactions = db_session.query(Transaction).filter(
+            Transaction.user_id == current_user.id,
+            extract('month', Transaction.date) == current_month,
+            extract('year', Transaction.date) == current_year
+        ).all()
+        
+        # Get budgets for current month
+        budgets = db_session.query(Budget).filter_by(
+            user_id=current_user.id,
+            month=current_month,
+            year=current_year
+        ).all()
+        
+        # Get saved impulses
+        impulses = db_session.query(SavedImpulse).filter_by(user_id=current_user.id).all()
+        
+        # Calculate total spent this month
+        total_spent = sum(t.amount for t in transactions)
+        
+        # Calculate total budget
+        total_budget = sum(b.planned_amount for b in budgets)
+        
+        # Calculate total saved from impulses
+        total_saved = sum(i.amount for i in impulses)
+        
+        # Group transactions by category
+        spending_by_category = {}
+        for transaction in transactions:
+            category = transaction.category
+            if category not in spending_by_category:
+                spending_by_category[category] = 0
+            spending_by_category[category] += transaction.amount
+        
+        # Find over-budget categories
+        over_budget_categories = []
+        for category, amount in spending_by_category.items():
+            budget_item = next((b for b in budgets if b.category == category), None)
+            if budget_item and amount > budget_item.planned_amount:
+                over_budget_categories.append({
+                    'name': category,
+                    'amount': amount,
+                    'budget': budget_item.planned_amount,
+                    'overage': amount - budget_item.planned_amount
+                })
+        
+        # Sort by overage amount
+        over_budget_categories.sort(key=lambda x: x['overage'], reverse=True)
+        
+        # Generate financial insights
+        insights = []
+        
+        # Monthly income (in a real app, this would be calculated from income transactions)
+        monthly_income = 8350.00
+        
+        # Calculate savings rate
+        savings_rate = 0
+        if monthly_income > 0:
+            savings_rate = round(((monthly_income - total_spent) / monthly_income) * 100, 1)
+        
+        # Determine if savings rate is improving (in a real app, this would be calculated from historical data)
+        savings_rate_change = 3.1
+        
+        # Savings rate insight
+        if savings_rate_change > 0:
+            insights.append({
+                'type': 'positive',
+                'title': 'Positive Trend',
+                'description': f"Your savings rate has increased by {savings_rate_change}% compared to last month. Keep up the good work!"
+            })
+        
+        # Budget optimization insight
+        if over_budget_categories:
+            insights.append({
+                'type': 'suggestion',
+                'title': 'Budget Optimization',
+                'description': f"Consider reallocating your {over_budget_categories[0]['name']} budget or finding ways to reduce spending in this category."
+            })
+        
+        # Subscription optimization
+        if any(c.lower() in ['subscriptions', 'entertainment'] for c in spending_by_category.keys()):
+            insights.append({
+                'type': 'opportunity',
+                'title': 'Subscription Audit',
+                'description': "Based on your spending patterns, you could save by reviewing your subscriptions and canceling unused services."
+            })
+        
+        # Investment insight
+        if total_saved > 0:
+            insights.append({
+                'type': 'suggestion',
+                'title': 'Investment Opportunity',
+                'description': f"If you redirected just 10% more of your discretionary spending to investments, you could grow your portfolio by an additional €{round(total_spent * 0.1 * 12 * 1.08, 2)} in one year."
+            })
+        
+        return jsonify(insights)
+    
+    except Exception as e:
+        logger.error(f"Error generating financial insights: {str(e)}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
     
     finally:

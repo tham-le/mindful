@@ -6,6 +6,7 @@ import { LanguageProvider } from './context/LanguageContext';
 import { AuthProvider } from './context/AuthContext';
 import Layout from './components/Layout';
 import Login from './components/Login';
+import TestChat from './components/TestChat';
 import './index.css';
 
 // Protected route component
@@ -30,6 +31,7 @@ function App() {
             <ConversationProvider>
               <Routes>
                 <Route path="/login" element={<Login />} />
+                <Route path="/test-chat" element={<TestChat />} />
                 <Route 
                   path="/*" 
                   element={

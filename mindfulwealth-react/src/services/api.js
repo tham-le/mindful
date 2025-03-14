@@ -1,7 +1,7 @@
 import axios from 'axios';
 import authService from './auth';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 // Create an axios instance with a timeout
 const apiClient = axios.create({
@@ -47,14 +47,19 @@ apiClient.interceptors.response.use(
 const api = {
   // Chat endpoints
   sendMessage: (message, contextData = null, conversationHistory = []) => {
+    console.log('API sendMessage called with:', { message, contextData, conversationHistory });
     return apiClient.post('/chat', { 
       message, 
       contextData,
       conversationHistory 
+    }).then(response => {
+      console.log('API sendMessage response:', response);
+      return response;
     }).catch(error => {
       console.log('Error sending message:', error.message);
       // Return mock response in development
       if (process.env.NODE_ENV === 'development') {
+        console.log('Returning mock response in development');
         return { data: { response: 'This is a mock response since the API is not available.', financial_data: null } };
       }
       throw error;
@@ -149,6 +154,239 @@ const api = {
       // Return mock response in development
       if (process.env.NODE_ENV === 'development') {
         return { data: { success: true, id: 'mock-id-' + Date.now() } };
+      }
+      throw error;
+    });
+  },
+  
+  // Dashboard endpoints
+  getDashboard: () => {
+    return apiClient.get('/dashboard').catch(error => {
+      console.log('Error getting dashboard data:', error.message);
+      // Return mock response in development
+      if (process.env.NODE_ENV === 'development') {
+        return { 
+          data: {
+            summary: {
+              total_spent: 5240.00,
+              total_budget: 8000.00,
+              budget_remaining: 2760.00,
+              budget_remaining_pct: 34.5,
+              spending_change_pct: -0.5,
+              total_saved: 1200.00,
+              total_balance: 24563.00,
+              monthly_income: 8350.00,
+              monthly_expenses: 5240.00,
+              savingsRate: 37.2,
+              savingsRate_change_pct: 3.1,
+              potential_growth_1yr: 1296.00,
+              potential_growth_5yr: 1762.00
+            },
+            portfolio: {
+              total: 24563.00,
+              allocation: {
+                stocks: 45,
+                bonds: 30,
+                cash: 25
+              }
+            },
+            activity: [
+              {
+                id: 1,
+                title: 'Salary Deposit',
+                time: 'Today, 10:30 AM',
+                amount: 3500.00,
+                type: 'deposit'
+              },
+              {
+                id: 2,
+                title: 'Rent Payment',
+                time: 'Yesterday, 2:15 PM',
+                amount: 1200.00,
+                type: 'withdrawal'
+              },
+              {
+                id: 3,
+                title: 'Investment Return',
+                time: 'Mar 15, 9:45 AM',
+                amount: 450.00,
+                type: 'deposit'
+              },
+              {
+                id: 4,
+                title: 'Grocery Shopping',
+                time: 'Mar 14, 6:30 PM',
+                amount: 85.75,
+                type: 'withdrawal'
+              }
+            ],
+            goals: [
+              {
+                name: 'Emergency Fund',
+                current: 7500,
+                target: 10000,
+                progress: 75
+              },
+              {
+                name: 'Vacation Savings',
+                current: 1350,
+                target: 3000,
+                progress: 45
+              },
+              {
+                name: 'Home Down Payment',
+                current: 15000,
+                target: 50000,
+                progress: 30
+              }
+            ],
+            insights: [
+              {
+                type: 'positive',
+                title: 'Positive Trend',
+                description: 'Your savings rate has increased by 3.1% compared to last month. Keep up the good work!'
+              },
+              {
+                type: 'suggestion',
+                title: 'Suggestion',
+                description: 'Consider increasing your retirement contributions to maximize tax benefits.'
+              },
+              {
+                type: 'opportunity',
+                title: 'Opportunity',
+                description: 'Based on your spending patterns, you could save an additional €250 monthly by optimizing subscriptions.'
+              }
+            ]
+          }
+        };
+      }
+      throw error;
+    });
+  },
+  
+  getFinancialGoals: () => {
+    return apiClient.get('/goals').catch(error => {
+      console.log('Error getting financial goals:', error.message);
+      // Return mock response in development
+      if (process.env.NODE_ENV === 'development') {
+        return { 
+          data: [
+            {
+              name: 'Emergency Fund',
+              current: 7500,
+              target: 10000,
+              progress: 75
+            },
+            {
+              name: 'Vacation Savings',
+              current: 1350,
+              target: 3000,
+              progress: 45
+            },
+            {
+              name: 'Home Down Payment',
+              current: 15000,
+              target: 50000,
+              progress: 30
+            }
+          ]
+        };
+      }
+      throw error;
+    });
+  },
+  
+  getPortfolioOverview: () => {
+    return apiClient.get('/portfolio').catch(error => {
+      console.log('Error getting portfolio overview:', error.message);
+      // Return mock response in development
+      if (process.env.NODE_ENV === 'development') {
+        return { 
+          data: {
+            total: 24563.00,
+            allocation: {
+              stocks: 45,
+              bonds: 30,
+              cash: 25
+            },
+            performance: {
+              ytd: 5.2,
+              oneYear: 8.7,
+              threeYears: 24.3
+            }
+          }
+        };
+      }
+      throw error;
+    });
+  },
+  
+  getRecentActivity: () => {
+    return apiClient.get('/activity').catch(error => {
+      console.log('Error getting recent activity:', error.message);
+      // Return mock response in development
+      if (process.env.NODE_ENV === 'development') {
+        return { 
+          data: [
+            {
+              id: 1,
+              title: 'Salary Deposit',
+              time: 'Today, 10:30 AM',
+              amount: 3500.00,
+              type: 'deposit'
+            },
+            {
+              id: 2,
+              title: 'Rent Payment',
+              time: 'Yesterday, 2:15 PM',
+              amount: 1200.00,
+              type: 'withdrawal'
+            },
+            {
+              id: 3,
+              title: 'Investment Return',
+              time: 'Mar 15, 9:45 AM',
+              amount: 450.00,
+              type: 'deposit'
+            },
+            {
+              id: 4,
+              title: 'Grocery Shopping',
+              time: 'Mar 14, 6:30 PM',
+              amount: 85.75,
+              type: 'withdrawal'
+            }
+          ]
+        };
+      }
+      throw error;
+    });
+  },
+  
+  getFinancialInsights: () => {
+    return apiClient.get('/insights').catch(error => {
+      console.log('Error getting financial insights:', error.message);
+      // Return mock response in development
+      if (process.env.NODE_ENV === 'development') {
+        return { 
+          data: [
+            {
+              type: 'positive',
+              title: 'Positive Trend',
+              description: 'Your savings rate has increased by 3.1% compared to last month. Keep up the good work!'
+            },
+            {
+              type: 'suggestion',
+              title: 'Suggestion',
+              description: 'Consider increasing your retirement contributions to maximize tax benefits.'
+            },
+            {
+              type: 'opportunity',
+              title: 'Opportunity',
+              description: 'Based on your spending patterns, you could save an additional €250 monthly by optimizing subscriptions.'
+            }
+          ]
+        };
       }
       throw error;
     });

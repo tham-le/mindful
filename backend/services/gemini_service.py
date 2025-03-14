@@ -8,12 +8,11 @@ from typing import Dict, Any, Optional, Union
 import os
 
 try:
-    from google import genai
-    from google.genai import types
+    import google.generativeai as genai
     GENAI_AVAILABLE = True
 except ImportError:
     GENAI_AVAILABLE = False
-    print("Warning: google-genai package not installed. Gemini service will not be available.")
+    print("Warning: google-generativeai package not installed. Gemini service will not be available.")
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -152,14 +151,59 @@ Always remember that your goal is to help users build wealth through mindful spe
             return
         
         try:
-            import google.generativeai as genai
             self.genai = genai
             self.genai.configure(api_key=self.api_key)
-            self.model = self.genai.GenerativeModel('gemini-pro')
-            self.client = self.genai
-            logger.info("Gemini API initialized successfully")
+            
+            # Define a list of models to try in order of preference
+            model_candidates = [
+                'gemini-1.5-pro',
+                'gemini-1.0-pro',
+                'gemini-pro',
+                'gemini-1.5-flash',
+                'gemini-1.0-flash',
+                'gemini-flash'
+            ]
+            
+            # Try to get available models
+            try:
+                available_models = self.genai.list_models()
+                available_model_names = [model.name for model in available_models]
+                logger.info(f"Available models: {available_model_names}")
+                
+                # Find the first model from our candidates that is available
+                for candidate in model_candidates:
+                    for available in available_model_names:
+                        if candidate in available:
+                            logger.info(f"Using model: {available}")
+                            self.model = self.genai.GenerativeModel(available)
+                            self.client = self.genai
+                            logger.info("Gemini API initialized successfully")
+                            return
+            except Exception as model_error:
+                logger.error(f"Error listing models: {str(model_error)}")
+            
+            # If we couldn't get the list of models or none of our candidates were found,
+            # try each candidate directly
+            logger.warning("Could not find a suitable model from the available models list. Trying candidates directly.")
+            for candidate in model_candidates:
+                try:
+                    logger.info(f"Trying model: {candidate}")
+                    self.model = self.genai.GenerativeModel(candidate)
+                    # Test the model with a simple request
+                    response = self.model.generate_content("Test")
+                    logger.info(f"Successfully initialized with model: {candidate}")
+                    self.client = self.genai
+                    return
+                except Exception as e:
+                    logger.warning(f"Model {candidate} failed: {str(e)}")
+            
+            # If all candidates failed, log an error and set model to None
+            logger.error("All model candidates failed. Using mock responses.")
+            self.model = None
+            
         except Exception as e:
             logger.error(f"Failed to initialize Gemini API: {str(e)}")
+            self.model = None
     
     def _translate_category(self, category, language='en'):
         """Translate category between languages"""
@@ -426,76 +470,103 @@ Always remember that your goal is to help users build wealth through mindful spe
         # Check if this is an investment question
         is_investment_question = self._is_investment_question(message)
         
-        # Try to use the AI model first, even if it's an investment question
+        # Get user's financial summary if available
+        financial_summary = self._get_financial_summary()
+        
         if GENAI_AVAILABLE and self.model:
             try:
-                # Prepare conversation history for context
-                history_prompt = ""
-                if conversation_history and len(conversation_history) > 0:
-                    history_prompt = "CONVERSATION HISTORY:\n"
-                    for i, msg in enumerate(conversation_history[-5:]):  # Use last 5 messages for context
-                        role = "USER" if msg["role"] == "user" else "ASSISTANT"
-                        history_prompt += f"{role}: {msg['content']}\n"
+                # Use Gemini to analyze the message if available
+                language = getattr(self, 'language', 'fr')
+                personality_mode = getattr(self, 'personality_mode', 'nice')
                 
-                # Prepare context data if available
-                context_prompt = ""
-                if context_data:
-                    context_prompt = "CONTEXT DATA:\n"
-                    for key, value in context_data.items():
-                        context_prompt += f"{key}: {value}\n"
+                # Prepare context for the model
+                history = []
+                if conversation_history:
+                    for msg in conversation_history:
+                        role = "user" if msg["role"] == "user" else "model"
+                        history.append({"role": role, "parts": [msg["content"]]})
                 
-                # Set personality instruction based on mode
-                personality_instruction = "Respond in a helpful, friendly manner."
-                if hasattr(self, 'personality_mode'):
-                    if self.personality_mode == 'funny':
-                        personality_instruction = "Respond with light humor while being helpful."
-                    elif self.personality_mode == 'irony':
-                        personality_instruction = "Respond with a touch of irony while being helpful."
+                # Detect if this is likely an impulse purchase
+                is_impulse = self._detect_impulse_purchase(message, language)
+                amount = self._extract_amount(message)
                 
-                # Add special instructions for investment questions
-                special_instructions = ""
+                # Add investment advice if it's an impulse purchase
+                investment_advice = ""
+                if is_impulse and amount:
+                    investment_advice = self._format_investment_advice(amount, language)
+                
+                # Prepare conversation instructions based on the type of question
+                instructions = self.system_instruction
+                
+                # Special instructions for investment questions
                 if is_investment_question:
-                    special_instructions = """
-This is an INVESTMENT QUESTION. Provide detailed, educational advice about investing:
-- Explain different investment options (ETFs, index funds, stocks, bonds)
-- Mention the importance of diversification and long-term thinking
-- Provide specific examples of how to get started with the amount mentioned
-- Explain the concept of compound interest with concrete examples
-- Mention potential risks and how to mitigate them
-"""
-                
-                # Combine all context for the model with clear section separators
-                full_prompt = f"""
-{history_prompt}
-{context_prompt}
-CURRENT USER MESSAGE:
-{message}
+                    amount = self._extract_amount(message)
+                    instructions += f"""
+                    
+THIS IS AN INVESTMENT QUESTION. Provide detailed advice on various investment options suitable for the amount specified (${amount if amount else 'mentioned'}).
 
-INSTRUCTIONS:
-{personality_instruction}
-{special_instructions}
-1. Consider the ENTIRE conversation history when crafting your response
-2. Maintain continuity with previous messages and reference specific details from earlier in the conversation
-3. If this is a follow-up to a previous financial discussion, acknowledge that context explicitly
-4. Extract financial information, classify the spending type (impulse or reasonable), and respond accordingly
-5. For impulse purchases, provide specific investment alternatives with growth projections
-6. For reasonable expenses, acknowledge the necessity and suggest budget allocation
-7. If the user is asking about a previous purchase, refer to the context data to provide a relevant response
-8. End with a natural follow-up question to continue the conversation when appropriate
-9. IMPORTANT: Respond in {getattr(self, 'language', 'fr')} language
-"""
+Include information about:
+1. Different investment vehicles (ETFs, index funds, bonds, stocks, etc.)
+2. The importance of diversification
+3. Examples of how to get started with the specified amount
+4. Realistic expectations for returns
+5. Risk considerations
+
+Your response should be educational and tailored to the user's language preference ({language}).
+                    """
                 
-                # Use self.model instead of self.client.models
-                response = self.model.generate_content(
-                    contents=[full_prompt],
-                    generation_config={
-                        "temperature": 0.2,
-                        "max_output_tokens": 800
-                    }
-                )
+                # Add financial context if available
+                if financial_summary:
+                    instructions += f"""
+
+FINANCIAL CONTEXT: The user has the following financial situation:
+- Monthly income: {self._format_currency(financial_summary.get('monthly_income', 0))}
+- Monthly expenses: {self._format_currency(financial_summary.get('monthly_expenses', 0))}
+- Total saved from impulse purchases: {self._format_currency(financial_summary.get('total_saved', 0))}
+- Savings rate: {financial_summary.get('savings_rate', 0)}%
+- Total balance: {self._format_currency(financial_summary.get('total_balance', 0))}
+
+Use this information to provide personalized advice that takes into account their specific financial situation.
+                    """
                 
-                # Extract the response text
-                response_text = response.text
+                # Add personality mode
+                instructions += f"\n\nUser personality preference: {personality_mode.upper()}\nUser language: {language}\n"
+                
+                if is_impulse:
+                    instructions += "\nThis appears to be about an IMPULSE PURCHASE. Remember to gently redirect toward investment.\n"
+                    if investment_advice:
+                        instructions += f"\n{investment_advice}\n"
+                
+                # Prepare the prompt with message
+                prompt = f"{instructions}\n\nUser message: {message}"
+                
+                # Get response from Gemini
+                try:
+                    logger.info(f"Sending request to Gemini API with model: {self.model}")
+                    response = self.model.generate_content(prompt)
+                    response_text = response.text
+                    logger.info("Successfully received response from Gemini API")
+                except Exception as api_error:
+                    logger.error(f"Error in Gemini API call: {str(api_error)}")
+                    logger.error(f"Error type: {type(api_error).__name__}")
+                    
+                    # Try to reinitialize the model
+                    logger.info("Attempting to reinitialize the Gemini API")
+                    self.initialize()
+                    
+                    if self.model:
+                        try:
+                            logger.info("Retrying with reinitialized model")
+                            response = self.model.generate_content(prompt)
+                            response_text = response.text
+                            logger.info("Successfully received response after reinitialization")
+                        except Exception as retry_error:
+                            logger.error(f"Retry also failed: {str(retry_error)}")
+                            logger.info("Falling back to rule-based analysis")
+                            return self._analyze_message_rule_based(message)
+                    else:
+                        logger.error("Reinitialization failed. Falling back to rule-based analysis")
+                        return self._analyze_message_rule_based(message)
                 
                 # Extract financial data from the response
                 financial_data = self._extract_financial_data(response_text)
@@ -509,18 +580,64 @@ INSTRUCTIONS:
                 }
                 
             except Exception as e:
-                logger.error(f"Error in Gemini API call: {str(e)}")
-                # Fall back to rule-based analysis only if necessary
+                logger.error(f"Error in Gemini service: {str(e)}")
+                logger.error(f"Error type: {type(e).__name__}")
+                
+                # Log more detailed information about the error
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
+                
+                # Check if API key might be invalid
+                if "API key" in str(e).lower() or "authentication" in str(e).lower():
+                    logger.error("Possible API key issue. Please check your Gemini API key.")
+                
+                # Check if it's a model availability issue
+                if "model" in str(e).lower() and ("not found" in str(e).lower() or "not available" in str(e).lower()):
+                    logger.error("Model availability issue. The specified model may not be available.")
+                
+                # Fall back to rule-based analysis
+                logger.info("Using rule-based message analysis")
                 if is_investment_question:
                     return self._handle_investment_question(message)
                 else:
                     return self._analyze_message_rule_based(message)
         else:
             # If Gemini is not available, use rule-based analysis
+            logger.info("Gemini API not available. Using rule-based message analysis")
             if is_investment_question:
                 return self._handle_investment_question(message)
             else:
                 return self._analyze_message_rule_based(message)
+    
+    def _format_currency(self, amount, currency=None):
+        """Format an amount with the appropriate currency symbol"""
+        if currency is None:
+            currency = self.preferred_currency
+            
+        symbol = self.currency_symbols.get(currency, "€")
+        return f"{symbol}{amount:,.2f}"
+                
+    def _get_financial_summary(self):
+        """Get financial summary from the database
+        
+        In a production app, this would fetch real-time data from the database.
+        For now, we'll return mock data.
+        """
+        try:
+            # Mock data structure that would typically come from the dashboard endpoint
+            return {
+                'monthly_income': 8350.00,
+                'monthly_expenses': 5240.00,
+                'total_saved': 1200.00,
+                'total_balance': 24563.00,
+                'savings_rate': 37.2,
+                'budget_remaining': 3110.00,
+                'budget_remaining_pct': 37.2,
+                'impulse_spending_pct': 15.3
+            }
+        except Exception as e:
+            logger.error(f"Error retrieving financial summary: {str(e)}")
+            return None
     
     def _is_investment_question(self, message: str) -> bool:
         """

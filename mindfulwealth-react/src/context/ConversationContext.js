@@ -81,7 +81,27 @@ export const ConversationProvider = ({ children }) => {
 
   // Add a message to the conversation
   const addMessage = (message) => {
-    setMessages(prevMessages => [...prevMessages, message]);
+    console.log('Adding message to conversation:', message);
+    
+    // Vérifier que le message est valide
+    if (!message || typeof message !== 'object') {
+      console.error('Invalid message format:', message);
+      return;
+    }
+    
+    // Vérifier que le message a un texte
+    if (!message.text) {
+      console.warn('Message without text:', message);
+      // Ajouter un texte par défaut si nécessaire
+      message.text = message.text || "Message sans contenu";
+    }
+    
+    // Ajouter le message à l'état
+    setMessages(prevMessages => {
+      const newMessages = [...prevMessages, message];
+      console.log('New messages state:', newMessages);
+      return newMessages;
+    });
   };
 
   // Send a message and get a response
@@ -95,6 +115,7 @@ export const ConversationProvider = ({ children }) => {
       timestamp: new Date().toISOString(),
     };
     addMessage(userMessage);
+    console.log('Message utilisateur ajouté:', userMessage);
 
     // Show typing indicator
     setIsTyping(true);
@@ -107,51 +128,77 @@ export const ConversationProvider = ({ children }) => {
         timestamp: msg.timestamp
       }));
 
+      console.log('Envoi du message à l\'API:', text);
+      console.log('Contexte de conversation:', conversationContext);
+      console.log('Historique formaté:', formattedHistory);
+
       // Call API to get response
       const response = await api.sendMessage(text, conversationContext, formattedHistory);
       
+      console.log('Réponse de l\'API complète:', response);
+      
       // Process API response
       if (response && response.data) {
+        console.log('Données de réponse:', response.data);
+        console.log('Texte de réponse:', response.data.response);
+        
+        // Vérifier que la réponse contient un texte
+        if (!response.data.response) {
+          console.error('La réponse de l\'API ne contient pas de texte:', response.data);
+          response.data.response = "Désolé, je n'ai pas pu générer une réponse. Veuillez réessayer.";
+        }
+        
+        // Nettoyer le texte de réponse (supprimer les caractères non imprimables)
+        const cleanedResponse = response.data.response.replace(/[\x00-\x09\x0B-\x0C\x0E-\x1F\x7F-\x9F]/g, '');
+        console.log('Texte de réponse nettoyé:', cleanedResponse);
+        
         const botMessage = {
           sender: 'bot',
-          text: response.data.response,
+          text: cleanedResponse,
           timestamp: new Date().toISOString(),
           personalityMode: personalityMode,
           financialData: response.data.financial_data
         };
+        
+        console.log('Message bot à ajouter:', botMessage);
         
         // Add bot response to messages
         addMessage(botMessage);
         
         // Update context with financial data if present
         if (response.data.financial_data) {
-          updateContext({
+          const newContext = {
             lastMentionedAmount: response.data.financial_data.original?.amount,
             lastMentionedCurrency: response.data.financial_data.original?.currency,
             lastResponseTime: new Date().toISOString()
-          });
+          };
+          console.log('Mise à jour du contexte avec les données financières:', newContext);
+          updateContext(newContext);
         }
       } else {
+        console.error('Réponse invalide de l\'API:', response);
         // Fallback for no response
         const fallbackMessage = {
           sender: 'bot',
-          text: "I'm sorry, I couldn't process your request at the moment. Please try again later.",
+          text: "Désolé, je n'ai pas pu traiter votre demande pour le moment. Veuillez réessayer plus tard.",
           timestamp: new Date().toISOString(),
           personalityMode: personalityMode,
         };
+        console.log('Ajout d\'un message de fallback:', fallbackMessage);
         addMessage(fallbackMessage);
       }
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('Erreur lors de l\'envoi du message:', error);
       
       // Add error message
       const errorMessage = {
         sender: 'bot',
-        text: "I'm having trouble connecting to the server. Please check your connection and try again.",
+        text: "Je rencontre des difficultés pour me connecter au serveur. Veuillez vérifier votre connexion et réessayer.",
         timestamp: new Date().toISOString(),
         personalityMode: personalityMode,
         isError: true
       };
+      console.log('Ajout d\'un message d\'erreur:', errorMessage);
       addMessage(errorMessage);
     } finally {
       // Hide typing indicator
