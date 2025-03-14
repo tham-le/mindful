@@ -54,6 +54,33 @@ Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
 db_session = Session()
 
+# Health check endpoint
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """Health check endpoint for monitoring"""
+    try:
+        # Check database connection
+        db_session.execute("SELECT 1")
+        db_status = "healthy"
+    except Exception as e:
+        logger.error(f"Database health check failed: {str(e)}")
+        db_status = "unhealthy"
+    
+    # Check Gemini API if available
+    gemini_status = "available" if GENAI_AVAILABLE else "unavailable"
+    
+    status_code = 200 if db_status == "healthy" else 500
+    
+    return jsonify({
+        "status": "healthy" if status_code == 200 else "unhealthy",
+        "timestamp": datetime.now().isoformat(),
+        "version": "1.0.0",
+        "services": {
+            "database": db_status,
+            "gemini_api": gemini_status
+        }
+    }), status_code
+
 # Global variables
 preferred_currency = "EUR"  # Default currency is EUR
 personality_mode = "nice"  # Default personality mode is now 'nice'
@@ -191,79 +218,95 @@ def chat():
     """
     Process chat messages and return AI responses
     """
-    data = request.json
-    
-    # Get current user if authenticated
-    current_user = get_current_user()
-    user_id = current_user.id if current_user else None
-    
-    # Get user's language preference
-    language_preference = current_user.language_preference if current_user else 'fr'
-    
-    message = data.get('message', '')
-    context_data = data.get('contextData', {})
-    conversation_history = data.get('conversationHistory', [])
-    
-    # Extract financial data if present in the message
-    currency, amount = extract_currency_amount(message)
-    
-    # If amount is detected, convert to preferred currency if needed
-    if amount is not None and currency != preferred_currency:
-        converted_amount = convert_currency(amount, currency, preferred_currency)
-        financial_data = {
-            'original': {'amount': amount, 'currency': currency},
-            'converted': {'amount': converted_amount, 'currency': preferred_currency}
-        }
-    elif amount is not None:
-        financial_data = {
-            'original': {'amount': amount, 'currency': currency},
-            'converted': None  # No conversion needed
-        }
-    else:
-        financial_data = None
-    
-    # Use Gemini service if available
-    if gemini_service:
-        try:
-            # Format conversation history for the AI
-            formatted_history = []
-            for msg in conversation_history:
-                role = "user" if msg.get('isUser') else "assistant"
-                formatted_history.append({
-                    "role": role,
-                    "content": msg.get('text', '')
+    try:
+        data = request.json
+        
+        # Get current user if authenticated
+        current_user = get_current_user()
+        user_id = current_user.id if current_user else None
+        
+        # Get user's language preference
+        language_preference = current_user.language_preference if current_user else 'fr'
+        
+        message = data.get('message', '')
+        context_data = data.get('contextData', {})
+        conversation_history = data.get('conversationHistory', [])
+        
+        # Log the incoming request
+        logger.info(f"Chat request received: {message[:50]}...")
+        
+        # Extract financial data if present in the message
+        currency, amount = extract_currency_amount(message)
+        
+        # If amount is detected, convert to preferred currency if needed
+        if amount is not None and currency != preferred_currency:
+            converted_amount = convert_currency(amount, currency, preferred_currency)
+            financial_data = {
+                'original': {'amount': amount, 'currency': currency},
+                'converted': {'amount': converted_amount, 'currency': preferred_currency}
+            }
+        elif amount is not None:
+            financial_data = {
+                'original': {'amount': amount, 'currency': currency},
+                'converted': None  # No conversion needed
+            }
+        else:
+            financial_data = None
+        
+        # Use Gemini service if available
+        if gemini_service:
+            try:
+                # Format conversation history for the AI
+                formatted_history = []
+                for msg in conversation_history:
+                    role = "user" if msg.get('isUser') else "assistant"
+                    formatted_history.append({
+                        "role": role,
+                        "content": msg.get('text', '')
+                    })
+                
+                # Add personality context and language preference
+                system_prompt = f"You are a financial advisor with a {personality_mode} approach to finances. Please respond in {language_preference} language."
+                
+                # Get response from Gemini
+                response = gemini_service.get_response(
+                    message, 
+                    system_prompt=system_prompt,
+                    conversation_history=formatted_history,
+                    context_data=context_data,
+                    language=language_preference
+                )
+                
+                # Ensure we have a valid response
+                if not response or response.strip() == "":
+                    logger.warning("Empty response from Gemini service, using fallback")
+                    response = get_mock_response(message, conversation_history, context_data, language_preference)
+                
+                return jsonify({
+                    'response': response,
+                    'financial_data': financial_data
                 })
-            
-            # Add personality context and language preference
-            system_prompt = f"You are a financial advisor with a {personality_mode} approach to finances. Please respond in {language_preference} language."
-            
-            # Get response from Gemini
-            response = gemini_service.get_response(
-                message, 
-                system_prompt=system_prompt,
-                conversation_history=formatted_history,
-                context_data=context_data,
-                language=language_preference
-            )
-            
-            return jsonify({
-                'response': response,
-                'financial_data': financial_data
-            })
-        except Exception as e:
-            print(f"Error with Gemini service: {str(e)}")
-            # Fall back to mock response
+            except Exception as e:
+                logger.error(f"Error with Gemini service: {str(e)}")
+                # Fall back to mock response
+                mock_response = get_mock_response(message, conversation_history, context_data, language_preference)
+                return jsonify({
+                    'response': mock_response,
+                    'financial_data': financial_data
+                })
+        else:
+            # Use mock response if no AI service available
             mock_response = get_mock_response(message, conversation_history, context_data, language_preference)
             return jsonify({
                 'response': mock_response,
                 'financial_data': financial_data
             })
-    else:
-        # Use mock response if no AI service available
-        mock_response = get_mock_response(message, conversation_history, context_data, language_preference)
+    except Exception as e:
+        logger.error(f"Unexpected error in chat endpoint: {str(e)}")
+        # Return a generic response in case of unexpected errors
         return jsonify({
-            'response': mock_response,
-            'financial_data': financial_data
+            'response': "Désolé, une erreur s'est produite. Veuillez réessayer." if request.json.get('language', 'fr') == 'fr' else "Sorry, an error occurred. Please try again.",
+            'financial_data': None
         })
 
 @app.route('/api/personality', methods=['POST'])

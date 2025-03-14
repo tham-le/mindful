@@ -54,15 +54,33 @@ const api = {
       conversationHistory 
     }).then(response => {
       console.log('API sendMessage response:', response);
+      
+      // Validate the response
+      if (!response.data || !response.data.response) {
+        console.error('Invalid API response format:', response);
+        return { 
+          data: { 
+            response: "Désolé, je n'ai pas pu générer une réponse. Veuillez réessayer.", 
+            financial_data: null 
+          } 
+        };
+      }
+      
       return response;
     }).catch(error => {
-      console.log('Error sending message:', error.message);
-      // Return mock response in development
+      console.error('Error sending message:', error.message);
+      // Return mock response in development or a fallback in production
       if (process.env.NODE_ENV === 'development') {
         console.log('Returning mock response in development');
         return { data: { response: 'This is a mock response since the API is not available.', financial_data: null } };
+      } else {
+        return { 
+          data: { 
+            response: "Je rencontre des difficultés pour me connecter au serveur. Veuillez vérifier votre connexion et réessayer.", 
+            financial_data: null 
+          } 
+        };
       }
-      throw error;
     });
   },
   

@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: mindfulwealth-backend
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=production
+      - FLASK_DEBUG=0
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-mindfulwealth-secret-key-change-in-production}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost,http://localhost:80}
+    volumes:
+      - ./backend/mindfulwealth.db:/app/mindfulwealth.db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - mindfulwealth-network
+
+  frontend:
+    build: ./mindfulwealth-react
+    container_name: mindfulwealth-frontend
+    restart: always
+    ports:
+      - "80:80"
+      - "3000:80"  # Allow access via both port 80 and 3000
+    depends_on:
+      - backend
+    environment:
+      - REACT_APP_API_URL=http://localhost:5000/api
+      - REACT_APP_ENV=production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - mindfulwealth-network
+
+networks:
+  mindfulwealth-network:
+    driver: bridge 

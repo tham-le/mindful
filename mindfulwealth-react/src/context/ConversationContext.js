@@ -142,14 +142,15 @@ export const ConversationProvider = ({ children }) => {
         console.log('Données de réponse:', response.data);
         console.log('Texte de réponse:', response.data.response);
         
-        // Vérifier que la réponse contient un texte
-        if (!response.data.response) {
-          console.error('La réponse de l\'API ne contient pas de texte:', response.data);
-          response.data.response = "Désolé, je n'ai pas pu générer une réponse. Veuillez réessayer.";
+        // Ensure we have a valid response text
+        let responseText = response.data.response;
+        if (!responseText || responseText.trim() === '') {
+          console.error('La réponse de l\'API est vide ou invalide');
+          responseText = "Désolé, je n'ai pas pu générer une réponse. Veuillez réessayer.";
         }
         
         // Nettoyer le texte de réponse (supprimer les caractères non imprimables)
-        const cleanedResponse = response.data.response.replace(/[\x00-\x09\x0B-\x0C\x0E-\x1F\x7F-\x9F]/g, '');
+        const cleanedResponse = responseText.replace(/[\x00-\x09\x0B-\x0C\x0E-\x1F\x7F-\x9F]/g, '');
         console.log('Texte de réponse nettoyé:', cleanedResponse);
         
         const botMessage = {
@@ -198,7 +199,6 @@ export const ConversationProvider = ({ children }) => {
         personalityMode: personalityMode,
         isError: true
       };
-      console.log('Ajout d\'un message d\'erreur:', errorMessage);
       addMessage(errorMessage);
     } finally {
       // Hide typing indicator
