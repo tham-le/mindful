@@ -131,4 +131,4 @@ Thumbs.db
 docker-compose.override.yml
 
 # Backups
-backups/ 
+backups/

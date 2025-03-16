@@ -26,14 +26,14 @@ apiClient.interceptors.response.use(
   response => response,
   error => {
     console.log('API Error:', error.message);
-    
+
     // If unauthorized and not a login/register request, redirect to login
-    if (error.response?.status === 401 && 
-        !error.config.url.includes('/auth/login') && 
-        !error.config.url.includes('/auth/register')) {
+    if (error.response?.status === 401 &&
+      !error.config.url.includes('/auth/login') &&
+      !error.config.url.includes('/auth/register')) {
       authService.logout();
     }
-    
+
     // Return a resolved promise with mock data for development
     if (process.env.NODE_ENV === 'development') {
       return Promise.resolve({
@@ -48,24 +48,24 @@ const api = {
   // Chat endpoints
   sendMessage: (message, contextData = null, conversationHistory = []) => {
     console.log('API sendMessage called with:', { message, contextData, conversationHistory });
-    return apiClient.post('/chat', { 
-      message, 
+    return apiClient.post('/chat', {
+      message,
       contextData,
-      conversationHistory 
+      conversationHistory
     }).then(response => {
       console.log('API sendMessage response:', response);
-      
+
       // Validate the response
       if (!response.data || !response.data.response) {
         console.error('Invalid API response format:', response);
-        return { 
-          data: { 
-            response: "Désolé, je n'ai pas pu générer une réponse. Veuillez réessayer.", 
-            financial_data: null 
-          } 
+        return {
+          data: {
+            response: "Désolé, je n'ai pas pu générer une réponse. Veuillez réessayer.",
+            financial_data: null
+          }
         };
       }
-      
+
       return response;
     }).catch(error => {
       console.error('Error sending message:', error.message);
@@ -74,16 +74,16 @@ const api = {
         console.log('Returning mock response in development');
         return { data: { response: 'This is a mock response since the API is not available.', financial_data: null } };
       } else {
-        return { 
-          data: { 
-            response: "Je rencontre des difficultés pour me connecter au serveur. Veuillez vérifier votre connexion et réessayer.", 
-            financial_data: null 
-          } 
+        return {
+          data: {
+            response: "Je rencontre des difficultés pour me connecter au serveur. Veuillez vérifier votre connexion et réessayer. aaaaaaaaa",
+            financial_data: null
+          }
         };
       }
     });
   },
-  
+
   // Personality mode
   setPersonalityMode: (mode) => {
     return apiClient.post('/personality', { mode }).catch(error => {
@@ -95,7 +95,7 @@ const api = {
       throw error;
     });
   },
-  
+
   // Currency settings
   getCurrency: () => {
     return apiClient.get('/currency').catch(error => {
@@ -107,7 +107,7 @@ const api = {
       throw error;
     });
   },
-  
+
   setCurrency: (currency) => {
     return apiClient.post('/currency', { currency }).catch(error => {
       console.log('Error setting currency:', error.message);
@@ -118,7 +118,7 @@ const api = {
       throw error;
     });
   },
-  
+
   // Transaction endpoints
   getTransactions: () => {
     return apiClient.get('/transactions').catch(error => {
@@ -130,7 +130,7 @@ const api = {
       throw error;
     });
   },
-  
+
   addTransaction: (transaction) => {
     return apiClient.post('/transactions', transaction).catch(error => {
       console.log('Error adding transaction:', error.message);
@@ -141,7 +141,7 @@ const api = {
       throw error;
     });
   },
-  
+
   // Budget endpoints
   getBudget: () => {
     return apiClient.get('/budget').catch(error => {
@@ -153,7 +153,7 @@ const api = {
       throw error;
     });
   },
-  
+
   // Saved impulses endpoints
   getSavedImpulses: () => {
     return apiClient.get('/saved-impulses').catch(error => {
@@ -165,7 +165,7 @@ const api = {
       throw error;
     });
   },
-  
+
   addSavedImpulse: (impulse) => {
     return apiClient.post('/saved-impulses', impulse).catch(error => {
       console.log('Error adding saved impulse:', error.message);
@@ -176,14 +176,14 @@ const api = {
       throw error;
     });
   },
-  
+
   // Dashboard endpoints
   getDashboard: () => {
     return apiClient.get('/dashboard').catch(error => {
       console.log('Error getting dashboard data:', error.message);
       // Return mock response in development
       if (process.env.NODE_ENV === 'development') {
-        return { 
+        return {
           data: {
             summary: {
               total_spent: 5240.00,
@@ -281,13 +281,13 @@ const api = {
       throw error;
     });
   },
-  
+
   getFinancialGoals: () => {
     return apiClient.get('/goals').catch(error => {
       console.log('Error getting financial goals:', error.message);
       // Return mock response in development
       if (process.env.NODE_ENV === 'development') {
-        return { 
+        return {
           data: [
             {
               name: 'Emergency Fund',
@@ -313,13 +313,13 @@ const api = {
       throw error;
     });
   },
-  
+
   getPortfolioOverview: () => {
     return apiClient.get('/portfolio').catch(error => {
       console.log('Error getting portfolio overview:', error.message);
       // Return mock response in development
       if (process.env.NODE_ENV === 'development') {
-        return { 
+        return {
           data: {
             total: 24563.00,
             allocation: {
@@ -338,13 +338,13 @@ const api = {
       throw error;
     });
   },
-  
+
   getRecentActivity: () => {
     return apiClient.get('/activity').catch(error => {
       console.log('Error getting recent activity:', error.message);
       // Return mock response in development
       if (process.env.NODE_ENV === 'development') {
-        return { 
+        return {
           data: [
             {
               id: 1,
@@ -380,13 +380,13 @@ const api = {
       throw error;
     });
   },
-  
+
   getFinancialInsights: () => {
     return apiClient.get('/insights').catch(error => {
       console.log('Error getting financial insights:', error.message);
       // Return mock response in development
       if (process.env.NODE_ENV === 'development') {
-        return { 
+        return {
           data: [
             {
               type: 'positive',
@@ -411,4 +411,4 @@ const api = {
   }
 };
 
-export default api; 
+export default api;

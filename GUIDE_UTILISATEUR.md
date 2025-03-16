@@ -193,21 +193,21 @@ Voici quelques scénarios où MindfulWealth peut vous aider :
 
 - Vérifiez que Docker et Docker Compose sont installés et fonctionnent correctement
 - Assurez-vous que les ports 80, 3000 et 5000 sont disponibles
-- Consultez les logs avec la commande : `docker-compose logs`
+- Consultez les logs avec la commande : `docker compose logs`
 
 ### L'assistant ne répond pas correctement
 
 - Vérifiez que votre clé API Gemini est valide
 - Assurez-vous que votre connexion internet fonctionne
-- Essayez de redémarrer l'application : `docker-compose restart`
+- Essayez de redémarrer l'application : `docker compose restart`
 
 ### Problèmes de connexion
 
 Si l'interface utilisateur ne peut pas se connecter à l'API :
 
-1. Vérifiez que les deux conteneurs sont en cours d'exécution : `docker-compose ps`
+1. Vérifiez que les deux conteneurs sont en cours d'exécution : `docker compose ps`
 2. Assurez-vous que le port 5000 est accessible
-3. Vérifiez les logs du backend : `docker-compose logs backend`
+3. Vérifiez les logs du backend : `docker compose logs backend`
 
 ## Conclusion
 

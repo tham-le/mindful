@@ -17,16 +17,30 @@ echo "          MindfulWealth Deployment Script            "
 echo "====================================================="
 echo -e "${NC}"
 
-# Check if Docker is installed
-echo -e "${YELLOW}Checking if Docker is installed...${NC}"
-if ! command -v docker &> /dev/null; then
+# After printing the banner (after echo -e "${NC}")
+if ! command -v lsof > /dev/null 2>&1; then
+    echo -e "${RED}This script requires lsof. Please install lsof and try again.${NC}"
+    exit 1
+fi
+if ! command -v docker > /dev/null 2>&1; then
     echo -e "${RED}Docker is not installed. Please install Docker first.${NC}"
     exit 1
+fi
+if ! docker ps > /dev/null 2>&1; then
+    echo -e "${RED}Docker commands require proper permissions. Make sure you are in the docker group or run with sudo.${NC}"
+    exit 1
+fi
+if [ -z "$EDITOR" ]; then
+    if command -v nano > /dev/null 2>&1; then
+        export EDITOR=nano
+    else
+        export EDITOR=vi
+    fi
 fi
 
 # Check if Docker Compose is installed
 echo -e "${YELLOW}Checking if Docker Compose is installed...${NC}"
-if ! command -v docker-compose &> /dev/null; then
+if ! command -v docker compose &> /dev/null; then
     echo -e "${RED}Docker Compose is not installed. Please install Docker Compose first.${NC}"
     exit 1
 fi
@@ -108,11 +122,18 @@ else
     echo -e "${GREEN}Gemini API key found.${NC}"
 fi
 
+# Before building and starting the containers
+if [ ! -f "backend/mindfulwealth.db" ]; then
+    echo -e "${YELLOW}backend/mindfulwealth.db does not exist. Creating empty SQLite DB file...${NC}"
+    mkdir -p backend
+    touch backend/mindfulwealth.db
+fi
+
 # Build and start the containers
 echo -e "${YELLOW}Building and starting the containers...${NC}"
-docker-compose down
-docker-compose build --no-cache
-docker-compose up -d
+docker compose down
+docker compose build --no-cache
+docker compose up -d
 
 # Check if containers are running
 echo -e "${YELLOW}Checking if containers are running...${NC}"
@@ -120,7 +141,7 @@ if [ "$(docker ps -q -f name=mindfulwealth-backend)" ] && [ "$(docker ps -q -f n
     echo -e "${GREEN}Containers are running successfully!${NC}"
 else
     echo -e "${RED}Containers failed to start. Please check the logs.${NC}"
-    docker-compose logs
+    docker compose logs
     exit 1
 fi
 
@@ -136,7 +157,7 @@ echo -e "${BLUE}Backend API: http://localhost:5000/api${NC}"
 echo -e "${GREEN}You can also access the frontend at:${NC}"
 echo -e "${BLUE}http://localhost:3000${NC} (if port 3000 is available)"
 echo -e "${YELLOW}To view logs, run:${NC}"
-echo -e "${BLUE}docker-compose logs -f${NC}"
+echo -e "${BLUE}docker compose logs -f${NC}"
 echo -e "${YELLOW}To stop the application, run:${NC}"
-echo -e "${BLUE}docker-compose down${NC}"
-echo -e "${GREEN}Thank you for using MindfulWealth!${NC}" 
+echo -e "${BLUE}docker compose down${NC}"
+echo -e "${GREEN}Thank you for using MindfulWealth!${NC}"

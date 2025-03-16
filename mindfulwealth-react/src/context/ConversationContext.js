@@ -8,7 +8,7 @@ export const useConversation = () => useContext(ConversationContext);
 
 export const ConversationProvider = ({ children }) => {
   const { user } = useAuth() || { user: null };
-  
+
   // Messages state
   const [messages, setMessages] = useState(() => {
     const savedMessages = localStorage.getItem('chatHistory');
@@ -50,7 +50,7 @@ export const ConversationProvider = ({ children }) => {
     const savedMode = localStorage.getItem('personalityMode');
     return savedMode || 'nice';
   });
-  
+
   // Loading state
   const [isTyping, setIsTyping] = useState(false);
 
@@ -66,7 +66,7 @@ export const ConversationProvider = ({ children }) => {
   // Save personality mode to localStorage when it changes
   useEffect(() => {
     localStorage.setItem('personalityMode', personalityMode);
-    
+
     // Update on the backend
     api.setPersonalityMode(personalityMode)
       .catch(error => console.error('Error setting personality mode:', error));
@@ -82,20 +82,20 @@ export const ConversationProvider = ({ children }) => {
   // Add a message to the conversation
   const addMessage = (message) => {
     console.log('Adding message to conversation:', message);
-    
+
     // Vérifier que le message est valide
     if (!message || typeof message !== 'object') {
       console.error('Invalid message format:', message);
       return;
     }
-    
+
     // Vérifier que le message a un texte
     if (!message.text) {
       console.warn('Message without text:', message);
       // Ajouter un texte par défaut si nécessaire
       message.text = message.text || "Message sans contenu";
     }
-    
+
     // Ajouter le message à l'état
     setMessages(prevMessages => {
       const newMessages = [...prevMessages, message];
@@ -134,25 +134,25 @@ export const ConversationProvider = ({ children }) => {
 
       // Call API to get response
       const response = await api.sendMessage(text, conversationContext, formattedHistory);
-      
+
       console.log('Réponse de l\'API complète:', response);
-      
+
       // Process API response
       if (response && response.data) {
         console.log('Données de réponse:', response.data);
         console.log('Texte de réponse:', response.data.response);
-        
+
         // Ensure we have a valid response text
         let responseText = response.data.response;
         if (!responseText || responseText.trim() === '') {
           console.error('La réponse de l\'API est vide ou invalide');
           responseText = "Désolé, je n'ai pas pu générer une réponse. Veuillez réessayer.";
         }
-        
+
         // Nettoyer le texte de réponse (supprimer les caractères non imprimables)
         const cleanedResponse = responseText.replace(/[\x00-\x09\x0B-\x0C\x0E-\x1F\x7F-\x9F]/g, '');
         console.log('Texte de réponse nettoyé:', cleanedResponse);
-        
+
         const botMessage = {
           sender: 'bot',
           text: cleanedResponse,
@@ -160,12 +160,12 @@ export const ConversationProvider = ({ children }) => {
           personalityMode: personalityMode,
           financialData: response.data.financial_data
         };
-        
+
         console.log('Message bot à ajouter:', botMessage);
-        
+
         // Add bot response to messages
         addMessage(botMessage);
-        
+
         // Update context with financial data if present
         if (response.data.financial_data) {
           const newContext = {
@@ -190,11 +190,11 @@ export const ConversationProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Erreur lors de l\'envoi du message:', error);
-      
+
       // Add error message
       const errorMessage = {
         sender: 'bot',
-        text: "Je rencontre des difficultés pour me connecter au serveur. Veuillez vérifier votre connexion et réessayer.",
+        text: "Je rencontre des difficultés pour me connecter au serveur. Veuillez vérifier votre connexion et réessayer. bbbbbbb",
         timestamp: new Date().toISOString(),
         personalityMode: personalityMode,
         isError: true
@@ -280,4 +280,4 @@ const defaultContext = {
   // Conversation flow
   followUpQuestions: [],
   userResponses: [],
-}; 
+};

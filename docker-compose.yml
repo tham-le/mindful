@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build: ./backend
@@ -48,4 +46,4 @@ services:
 
 networks:
   mindfulwealth-network:
-    driver: bridge 
+    driver: bridge

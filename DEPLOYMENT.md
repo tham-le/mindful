@@ -53,8 +53,8 @@ Edit these files to set your configuration values, especially:
 ### 2. Build and Start Containers
 
 ```bash
-docker-compose build
-docker-compose up -d
+docker compose build
+docker compose up -d
 ```
 
 ### 3. Verify Deployment
@@ -62,7 +62,7 @@ docker-compose up -d
 Check if the containers are running:
 
 ```bash
-docker-compose ps
+docker compose ps
 ```
 
 Access the application:
@@ -78,14 +78,14 @@ The application uses the following ports:
 - **Port 3000**: Alternative frontend access
 - **Port 5000**: Backend API
 
-If any of these ports are already in use on your system, you can modify the port mappings in the `docker-compose.yml` file:
+If any of these ports are already in use on your system, you can modify the port mappings in the `docker compose.yml` file:
 
 ```yaml
 services:
   backend:
     ports:
       - "YOUR_CUSTOM_PORT:5000"
-  
+
   frontend:
     ports:
       - "YOUR_CUSTOM_PORT:80"
@@ -114,7 +114,7 @@ This script allows you to start:
 If containers fail to start, check the logs:
 
 ```bash
-docker-compose logs
+docker compose logs
 ```
 
 ### API Connection Issues
@@ -157,7 +157,7 @@ cp backend/mindfulwealth.db backend/mindfulwealth.db.backup
 Monitor the application logs:
 
 ```bash
-docker-compose logs -f
+docker compose logs -f
 ```
 
 ## Security Considerations
