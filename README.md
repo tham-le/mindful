@@ -18,13 +18,16 @@ MindfulWealth is a financial assistant application designed to help users make m
 - Node.js 18+ and npm (for development)
 - Python 3.10+ (for development)
 - A valid Gemini API key from [Google AI Studio](https://ai.google.dev/)
+- lsof (required for checking open ports in deployment/development scripts)
+- A text editor such as nano or vi (used by the setup scripts)
+- Ensure you have proper Docker permissions (your user should be in the docker group or use sudo)
 
 ### Quick Start
 
 For a quick start with all default settings, simply run:
 
 ```bash
-./deploy.sh
+./start.sh
 ```
 
 This will set up and start the application in production mode.

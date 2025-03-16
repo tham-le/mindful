@@ -17,6 +17,27 @@ echo "          MindfulWealth Development Script           "
 echo "====================================================="
 echo -e "${NC}"
 
+# After printing the banner (after echo -e "${NC}")
+if ! command -v lsof > /dev/null 2>&1; then
+    echo -e "${RED}This script requires lsof. Please install lsof and try again.${NC}"
+    exit 1
+fi
+if ! command -v docker > /dev/null 2>&1; then
+    echo -e "${RED}Docker is not installed. Please install Docker first.${NC}"
+    exit 1
+fi
+if ! docker ps > /dev/null 2>&1; then
+    echo -e "${RED}Docker commands require proper permissions. Make sure you are in the docker group or run with sudo.${NC}"
+    exit 1
+fi
+if [ -z "$EDITOR" ]; then
+    if command -v nano > /dev/null 2>&1; then
+         export EDITOR=nano
+    else
+         export EDITOR=vi
+    fi
+fi
+
 # Check if ports are available
 echo -e "${YELLOW}Checking if required ports are available...${NC}"
 PORT_5000=$(lsof -i:5000 -t)
@@ -84,6 +105,10 @@ case $choice in
     1)
         echo -e "${GREEN}Starting backend...${NC}"
         cd backend
+        if [ ! -f "mindfulwealth.db" ]; then
+            echo -e "${YELLOW}mindfulwealth.db does not exist. Creating empty SQLite DB file...${NC}"
+            touch mindfulwealth.db
+        fi
         python -m flask run --host=0.0.0.0 --port=5000
         ;;
     2)
@@ -95,14 +120,18 @@ case $choice in
         echo -e "${GREEN}Starting both backend and frontend...${NC}"
         echo -e "${YELLOW}Starting backend in the background...${NC}"
         cd backend
+        if [ ! -f "mindfulwealth.db" ]; then
+            echo -e "${YELLOW}mindfulwealth.db does not exist. Creating empty SQLite DB file...${NC}"
+            touch mindfulwealth.db
+        fi
         python -m flask run --host=0.0.0.0 --port=5000 &
         BACKEND_PID=$!
         echo -e "${GREEN}Backend started with PID: $BACKEND_PID${NC}"
-        
+
         echo -e "${YELLOW}Starting frontend...${NC}"
         cd ../mindfulwealth-react
         npm start
-        
+
         # When frontend is stopped, also stop the backend
         echo -e "${YELLOW}Stopping backend (PID: $BACKEND_PID)...${NC}"
         kill $BACKEND_PID
@@ -113,4 +142,4 @@ case $choice in
         ;;
 esac
 
-echo -e "${GREEN}Development environment stopped.${NC}" 
+echo -e "${GREEN}Development environment stopped.${NC}"
