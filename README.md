@@ -10,6 +10,20 @@ MindfulWealth is a financial assistant application designed to help users make m
 - **Multiple Personality Modes**: Choose between different advisor personalities (nice, funny, ironic)
 - **Multilingual Support**: Available in English and French
 
+## Visual Overview
+
+![Chat Interface](img/chat_interface.png)
+*The intuitive chat interface.*
+
+![Dashboard in French](img/Dashboard%20inFrench.png)
+*Dashboard view in French, showcasing multilingual support.*
+
+![Mobile Responsive Dashboard](img/dasboard_mobile_responsive.png)
+*Mobile responsive design of the dashboard.*
+
+![Profile Settings](img/profil-setting.png)
+*User profile and personality settings.*
+
 ## Getting Started
 
 ### Prerequisites
